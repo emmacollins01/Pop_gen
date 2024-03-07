@@ -8,7 +8,7 @@
 
 # %%
 import os
-os.chdir('/mnt/storage11/sophie/bijagos_mosq_wgs/2019_melas_fq2vcf_gambiae_aligned/genomics_database_melas2019plusglobal/genomics_database_melas2019plusglobal_vcf/melas_2019_plusglobal_filtering')
+os.chdir('/mnt/storage12/emma/selection/')
 os.getcwd()
 
 # %%
@@ -23,10 +23,10 @@ import random
 
 ## convert phased, filtered, VCF file to zarr file
 # %%
-# allel.vcf_to_zarr('2022gambiaevcfphased.vcf.gz', '2022gambiaevcfphased.zarr', fields='*', overwrite=True)
+allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.phased.vcf.gz.vcf.gz', 'all_aedes_lmiss_phased.zarr', fields='*', overwrite=True)
 
 # %%
-callset = zarr.open('2019melasglobal_finalfiltered_gambiaealigned_phased.zarr', mode='r')
+callset = zarr.open('all_aedes_lmiss_phased.zarr', mode='r')
 #callset.tree(expand=True)
 
 # %%
@@ -36,9 +36,9 @@ print(genotype_array.shape)
 
 # %%
 ## import metadata
-df_samples=pd.read_csv('metadata_melasplusglobal.csv',sep=',',usecols=['sample','year','country','species','island'])
+df_samples=pd.read_csv('all_sample_country_metadata.csv',sep=',',usecols=['ID','Country','Region','Subregion'])
 df_samples.head()
-df_samples.groupby(by=['country']).count
+df_samples.groupby(by=['Country']).count
 
 # %% Filter genotype array
 # 1. Make allele count array so that we can filter for biallelic and segregating variants
@@ -59,21 +59,30 @@ filtered_ac_array = ac_array.compress(ac_array_filter, axis=0)
 filtered_gt = genotype_array.compress(ac_array_filter, axis = 0)
 
 # %% partition samples by county using metadata, split by index value and store as array
-bissau_samples = df_samples[df_samples['country'] == 'Guinea-Bissau'].index.values
-cameroon_samples = df_samples[df_samples['country'] == 'Cameroon'].index.values
-gambia_samples = df_samples[df_samples['country'] == 'The Gambia'].index.values
-
+np.unique(df_samples.Country)
+brazil_samples = df_samples[df_samples['Country'] == 'Brazil'].index.values
+burkina_faso_samples = df_samples[df_samples['Country'] == 'Burkina Faso'].index.values
+kenya_samples = df_samples[df_samples['Country'] == 'Kenya'].index.values
+mexico_samples = df_samples[df_samples['Country'] == 'Mecio'].index.values
+puerto_rico_samples = df_samples[df_samples['Country'] == 'Puerto Rico'].index.values
+thailand_samples = df_samples[df_samples['Country'] == 'Thailand'].index.values
+usa_samples = df_samples[df_samples['Country'] == 'USA'].index.values
+uganda_samples = df_samples[df_samples['Country'] == 'Uganda'].index.values
 # %% select genotypes for variants and store as a genotype dask array
 # this array contains many columns (1 for each mosquito), many million rows for each variant, and stores the genotype for each.
-gt_bissau_samples = filtered_gt.take(bissau_samples, axis=1)
-gt_cameroon_samples = filtered_gt.take(cameroon_samples, axis=1)
-gt_gambia_samples = filtered_gt.take(gambia_samples, axis=1)
+gt_brazil_samples = filtered_gt.take(brazil_samples, axis=1)
+gt_burkina_faso_samples = filtered_gt.take(burkina_faso_samples, axis=1)
+gt_kenya_samples = filtered_gt.take(kenya_samples, axis=1)
+gt_puerto_rico_samples = filtered_gt.take(puerto_rico_samples, axis=1)
+
+
 
 # %% convert this genotype array to haplotype array (we can do this because the original data was phased)
 # the haplotype array is similar to the genotype array, but there are two columns per mosquito, one for each haplotype
-h_bissau_seg = gt_bissau_samples.to_haplotypes().compute()
-h_cameroon_seg = gt_cameroon_samples.to_haplotypes().compute()
-h_gambia_seg = gt_gambia_samples.to_haplotypes().compute()
+h_brazil_seg = gt_brazil_samples.to_haplotypes().compute()
+h_burkina_faso_seg = gt_burkina_faso_samples.to_haplotypes().compute()
+h_kenya_seg = gt_kenya_samples.to_haplotypes().compute()
+h_puerto_rico_seg = gt_puerto_rico_samples.to_haplotypes().compute()
 
 # %% also store chromosome of each variant as we need this for shading the plots later
 chrom = callset['variants/CHROM'][:]
@@ -102,48 +111,60 @@ else:
 
 # Your list of tuples - there are two haplotypes per mosquito, for bissau melas there are 
 # 30 mosquitoes so 60 haplotypes in the haplotype array h_bissau_seg
-tuples_list = [
-    (0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11), (12, 13), (14, 15),
-    (16, 17), (18, 19), (20, 21), (22, 23), (24, 25), (26, 27), (28, 29),
-    (30, 31), (32, 33), (34, 35), (36, 37), (38, 39), (40, 41), (42, 43),
-    (44, 45), (46, 47), (48, 49), (50, 51), (52, 53), (54, 55), (56, 57),
-    (58, 59),
-]
+length = len(df_samples[df_samples.Country =="Kenya"])
+length = 2*length
+tuples_list = [(i, i + 1) for i in range(0, length, 2)]
+#tuples_list = [(1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16), (17, 18), (19, 20), 
+#               (21, 22), (23, 24), (25, 26), (27, 28), (29, 30), (31, 32), (33, 34), (35, 36), (37, 38), (39, 40), 
+ #              (41, 42), (43, 44), (45, 46), (47, 48), (49, 50), (51, 52), (53, 54), (55, 56), (57, 58), (59, 60), 
+  #             (61, 62), (63, 64), (65, 66), (67, 68), (69, 70), (71, 72), (73, 74), (75, 76), (77, 78), (79, 80), 
+   #            (81, 82), (83, 84), (85, 86), (87, 88), (89, 90), (91, 92), (93, 94), (95, 96), (97, 98), (99, 100), 
+    #           (117, 118), (119, 120), (121, 122), (123, 124), (125, 126), (127, 128), (129, 130), (131, 132), 
+    #3           (101, 102), (103, 104), (105, 106), (107, 108), (109, 110), (111, 112), (113, 114), (115, 116), 
+      #         (133, 134), (135, 136), (137, 138), (139, 140), (141, 142), (143, 144), (145, 146), (147, 148), 
+       #        (149, 150), (151, 152), (153, 154), (155, 156), (157, 158), (159, 160), (161, 162), (163, 164), 
+        #       (165, 166), (167, 168), (169, 170), (171, 172), (173, 174), (175, 176), (177, 178), (179, 180), 
+         #      (181, 182), (183, 184), (185, 186), (187, 188), (189, 190), (191, 192), (193, 194), (195, 196), 
+           #    (213, 214), (215, 216), (217, 218), (219, 220), (221, 222), (223, 224), (225, 226), (227, 228), 
+          ##     (197, 198), (199, 200), (201, 202), (203, 204), (205, 206), (207, 208), (209, 210), (211, 212), 
+            #   (229, 230), (231, 232), (233, 234), (235, 236), (237, 238), (239, 240), (241, 242), (243, 244), 
+             #  (245, 246), (247, 248)]
 
 # Number of iterations
+## 200 initially
 n_iterations = 200
 
 # Initialize a list to store h12 values for each window across all iterations
-iterated_bissau_h12_values = []
+iterated_brazil_h12_values = []
 
 # Loop for n_iterations
 for _ in range(n_iterations):
     # Randomly select n-1 tuples
-    selected_tuples = random.sample(tuples_list, 29)
+    selected_tuples = random.sample(tuples_list, 15)
 
     # Extract the column indices from the tuples
     column_indices = [idx for tup in selected_tuples for idx in tup]
 
     # Subset the haplotype array
-    subset_bissau_hap_array = h_bissau_seg[:, column_indices]
+    subset_brazil_hap_array = h_kenya_seg[:, column_indices]
 
     # Calculate h12 for the subsetted hap array
-    _, iterated_real_bissau_h12, _, _ = allel.moving_garud_h(subset_bissau_hap_array, 1000)
+    _, iterated_real_brazil_h12, _, _ = allel.moving_garud_h(subset_brazil_hap_array, 1000)
 
     # Store the h12 value for each window in the list
-    iterated_bissau_h12_values.append(iterated_real_bissau_h12)
+    iterated_brazil_h12_values.append(iterated_real_brazil_h12)
 
 # Convert the list to a numpy array
-iterated_bissau_h12_values_array = np.array(iterated_bissau_h12_values)
+iterated_brazil_h12_values_array = np.array(iterated_brazil_h12_values)
 
 # Calculate the mean of the h12 values for each window
-mean_bissau_h12_per_window = np.mean(iterated_bissau_h12_values_array, axis=0)
+mean_brazil_h12_per_window = np.mean(iterated_brazil_h12_values_array, axis=0)
 
 # mean_h12_per_window now contains the mean h12 value for each window
 
 # %% Check the number of windows for each array 
-num_windows_bissau = mean_bissau_h12_per_window.shape[0]
-print("Number of windows for bissau samples:", num_windows_bissau)
+num_windows_brazil = mean_brazil_h12_per_window.shape[0]
+print("Number of windows for brazil samples:", num_windows_brazil)
 
 # %% The h12 values are calculated in windows of 1000 SNPs. Each SNP has a POS value which is in the POS array.
 window_size = 1000  # Define the window size as 1000 SNPs
@@ -153,21 +174,21 @@ num_windows = len(pos_filtered) // window_size  # Calculate the number of window
 # for each iteration (i) a segment of pos_res_seg is processed
 median_positions = [np.median(pos_filtered[i * window_size: (i + 1) * window_size]) for i in range(num_windows)]
 
-bissau_h12_chrom = {}
+brazil_h12_chrom = {}
 # Loop through each window
 for i in range(num_windows):
     chrom = chrom_filtered[i * window_size]  # Assumes the chromosome for all SNPs in a single window is consistent 
     pos = median_positions[i]
-    h12 = mean_bissau_h12_per_window[i]
+    h12 = mean_brazil_h12_per_window[i]
     # Add this data to the corresponding chromosome in the dictionary
-    if chrom not in bissau_h12_chrom:
-        bissau_h12_chrom[chrom] = {'positions': [], 'h12': []}
-    bissau_h12_chrom[chrom]['positions'].append(pos)
-    bissau_h12_chrom[chrom]['h12'].append(h12)
+    if chrom not in brazil_h12_chrom:
+        brazil_h12_chrom[chrom] = {'positions': [], 'h12': []}
+    brazil_h12_chrom[chrom]['positions'].append(pos)
+    brazil_h12_chrom[chrom]['h12'].append(h12)
 # Now plot for each chromosome
-for chrom in bissau_h12_chrom:
+for chrom in brazil_h12_chrom:
     plt.figure(figsize=(10, 6))
-    plt.scatter(bissau_h12_chrom[chrom]['positions'], bissau_h12_chrom[chrom]['h12'], alpha=0.6)
+    plt.scatter(brazil_h12_chrom[chrom]['positions'], brazil_h12_chrom[chrom]['h12'], alpha=0.6)
     plt.xlabel('Median position of SNP windows across the chromosome')
     plt.ylabel('Mean H12 value in Bijagos Archipelago Anopheles melas samples')
     plt.title(f'Genome Wide Selection Scan of H12 Values across Chromosome {chrom}')
@@ -180,7 +201,7 @@ with open('bissau_h12_chrom.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(['Chromosome', 'Position', 'H12'])
     # Iterate through the dictionary and write data
-    for chrom, data in bissau_h12_chrom.items():
+    for chrom, data in brazil_h12_chrom.items():
         for position, h12 in zip(data['positions'], data['h12']):
             writer.writerow([chrom, position, h12])
 
