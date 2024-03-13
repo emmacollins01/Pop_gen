@@ -112,3 +112,5 @@ for (i in unique(nuc$FileFrom)){
     table$mean[table$country == i] <-sub_mean
 }
 
+head(table)
+write.csv(table, "Nucleotide_diversity_summary.csv")

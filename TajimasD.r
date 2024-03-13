@@ -74,7 +74,7 @@ for (i in unique(nuc$FileFrom)){
         facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
         #geom_hline(yintercept = mean(sub$PI), colour = "firebrick") +
         xlab("Position") +
-        ylab("Pi Value") +
+        ylab("Tajimas D") +
         ggtitle(paste0("Tajima's D across each chromsomes for ", sub$FileFrom[1])) +
         theme_minimal() +
         theme(strip.text = element_text(size = 20),
@@ -92,7 +92,7 @@ ggplot() +
     facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
     #geom_hline(yintercept = 0.0006, colour = "firebrick") +
     xlab("Position") +
-    ylab("Pi Value") +
+    ylab("Tajimas D") +
     ggtitle("Tajima's D across each chromsomes") +
     theme_classic() +
     theme(strip.text = element_text(size = 20),
@@ -107,8 +107,11 @@ table = data.frame(country = unique(nuc$FileFrom), mean = NA, row.names = NULL, 
 for (i in unique(nuc$FileFrom)){
 
     sub = nuc[nuc$FileFrom == i,]
-    sub_mean <- mean(sub$TajimaD)
+    sub <- sub[sub$N_SNPS != 0,]
+    sub_mean <- mean(sub$TajimaD, rm.na = TRUE)
 
     table$mean[table$country == i] <-sub_mean
 }
 
+head(table)
+write.csv(table, "Tajima_summary.csv")
