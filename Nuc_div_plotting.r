@@ -9,13 +9,18 @@
 ## Run vcftools - run on 10kb windows
 ## These files are in input here
 #for i in $(ls *SRR.vcf.gz);do vcftools --gzvcf $i --window-pi 10000 --out ${i}_nuc_div_window_10kb;done
-
+library(dplyr)
 setwd("/mnt/storage12/emma/nuc_div/")
 rm(list = ls())
 nuc <- read.csv("all_nuc_div_window_10kb.windowed.pi", sep = "\t", header = TRUE)
 
-files <- list.files(pattern = "*z_nuc_div_window_10kb.windowed.pi")
+x <- nuc %>% slice_max(PI, n = 20)
+rm(nuc, x)
 
+
+files <- list.files(pattern = "*z_nuc_div_window_10kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_20kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_300kb.windowed.pi")
 countries <- c()
 dataframes <- c()
 
@@ -53,6 +58,8 @@ dataframes <- Filter(function(x) is(x, "data.frame"), mget(ls()))
 all <- do.call(rbind, dataframes)
 head(all)
 
+summary(all$PI)
+
 library(ggplot2)
 
 ## Subset and change names of chromosomes if needed!
@@ -62,29 +69,118 @@ nuc$CHROM[nuc$CHROM == 35108] <- "2"
 nuc$CHROM[nuc$CHROM == 35109] <- "3"
 nuc$CHROM[nuc$CHROM == 35159] <- "MT"
 
+nuc$FileFrom[nuc$FileFrom == "Burkina_Faso"] <- "Burkina Faso"
+nuc$FileFrom[nuc$FileFrom == "Puerto_Rico"] <- "Puerto Rico"
 colnames(nuc)
-options(scipen = 999)
+options(scipen = 0)
+library(unikn)
 
+### BOXPLOTS ###
+mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"), n = 8)
+#mycols <- unikn::usecol(c("#CDD3D5", "#75B8C8", "#197278", "#03045E", "#922D50"), n = 8)
+#mycols <- c("#c7522a", "#e5c185", "#f0daa5", "#fbf2c4", "#b8cdab", "#74a892", "#008585", "#004343")
+    plot1 <- ggplot() +
+        geom_boxplot(data = nuc[nuc$CHROM != "MT",], aes(x = FileFrom, y = PI, fill = FileFrom), outlier.shape = NA) +
+        scale_fill_manual(values = mycols) +
+        scale_y_continuous(limits = c(0, 0.0015)) +
+        xlab("") +
+        ylab("Nucleotide DIversity (π)") +
+        ggtitle("Nucleotide diversity across each chromsome \n (window size 20kbp)") +
+        guides(fill = guide_legend(title = "Country")) +
+        theme_classic() +
+        theme(strip.text = element_text(size = 20),
+        legend.text = element_text(size = 18),
+        legend.position = "None",
+        axis.text = element_text(size = 18, angle = 45, hjust =1, vjust = -1),
+        axis.title = element_text(size = 18),
+        strip.background = element_rect(fill = "#a8bac3"),
+        title = element_text(size = 20)) +
+        facet_wrap(~CHROM, ncol = 4)
+
+   plot2 <-  ggplot() +
+        geom_boxplot(data = nuc[nuc$CHROM != "MT",], aes(x = FileFrom, y = PI, fill = FileFrom), outlier.shape = NA) +
+        scale_fill_manual(values = mycols) +
+        scale_y_continuous(limits = c(0, 0.0015)) +
+        xlab("") +
+        ylab("Nucleotide DIversity (π)") +
+        ggtitle("Nucleotide diversity for each population \n(window size 20kb)") +
+        guides(fill = guide_legend(title = "Country")) +
+        theme_classic() +
+        theme(strip.text = element_text(size = 20),
+        legend.text = element_text(size = 18),
+        legend.position = "None",
+        axis.text = element_text(size = 18, angle = 45, hjust =1),
+        axis.title = element_text(size = 18),
+        title = element_text(size = 20)) 
+        #facet_wrap(~CHROM, ncol = 4)
+
+library(cowplot)
+library(patchwork)
+nuc_div_plot <- plot2 + plot1 + plot_layout(nrow = 2)
+nuc_div_plot
+
+## scatter grid per chromosome and country
+ggplot() + 
+        geom_point(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = PI, alpha = 0.4)) +
+        facet_grid(vars(FileFrom), vars(CHROM), scales = "free_x") +
+        geom_hline(yintercept = mean(sub$PI), colour = "#a8bac3", size = 1.5) +
+        xlab("") +
+        ylab("Pi Value") +
+        #ggtitle(paste0("Nuclotide diversity across each chromsomes for ", sub$FileFrom[1])) +
+        #ggtitle(paste0(nuc$FileFrom[1])) +
+        theme_classic() +
+        theme(strip.text = element_text(size = 16),
+        axis.text = element_text(size = 14, angle = 45, hjust =1),
+        axis.title = element_text(size = 18),
+        strip.background = element_rect(fill = "#a8bac3"),
+        legend.position = "none",
+        title = element_text(size = 18)) 
+    
+
+## plotting by country
+
+plot_list <- list()
 for (i in unique(nuc$FileFrom)){
 
     sub = nuc[nuc$FileFrom == i,]
 
     plot <- ggplot() + 
-        geom_point(data = sub, aes(x = BIN_START, y = PI)) +
+        geom_point(data = sub[sub$CHROM != "MT",], aes(x = BIN_START, y = PI, alpha = 0.4)) +
         facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
-        geom_hline(yintercept = mean(sub$PI), colour = "firebrick") +
+        geom_hline(yintercept = mean(sub$PI), colour = "#a8bac3", size = 1.5) +
+        xlab("") +
+        ylab("Pi Value") +
+        #ggtitle(paste0("Nuclotide diversity across each chromsomes for ", sub$FileFrom[1])) +
+        ggtitle(paste0(sub$FileFrom[1])) +
+        theme_minimal() +
+        theme(strip.text = element_text(size = 16),
+        axis.text = element_text(size = 16, angle = 45, hjust =1),
+        axis.title = element_text(size = 18),
+        legend.position = "none",
+        title = element_text(size = 18)) 
+    
+    ggplot() + 
+        geom_line(data = sub[sub$CHROM != "MT",], aes(x = BIN_START, y = PI)) +
+        facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
+        geom_hline(yintercept = mean(sub$PI), colour = "#a8bac3", size =1.5) +
         xlab("Position") +
         ylab("Pi Value") +
         ggtitle(paste0("Nuclotide diversity across each chromsomes for ", sub$FileFrom[1])) +
         theme_minimal() +
         theme(strip.text = element_text(size = 20),
         axis.text = element_text(size = 16, angle = 45, hjust =1),
-        axis.title = element_text(size = 18),
-        title = element_text(size = 20)) 
+        axis.title = element_text(size = 16),
+        title = element_text(size = 18)) 
+
     print(i)
     print(plot)
-    ggsave(paste0(i, "_nuc_div_plot.jpeg"), plot)
+    plot_list[[i]] <- plot
+    #ggsave(paste0(i, "_nuc_div_plot.jpeg"), plot)
     }
+
+all_plots <- plot_list[[1]] + plot_list[[2]] + plot_list[[3]] + plot_list[[4]] + plot_list[[5]] + plot_list[[6]] + plot_list[[7]] + plot_list[[8]]
+all_plots
+
 
 ## to plot individually
 ggplot() + 
@@ -99,6 +195,24 @@ ggplot() +
     axis.text = element_text(size = 16, angle = 45, hjust =1),
     axis.title = element_text(size = 18),
     title = element_text(size = 20))
+
+mycols <- c("#c7522a", "#e5c185", "#f0daa5", "#fbf2c4", "#b8cdab", "#74a892", "#008585", "#004343")
+ggplot() +
+    geom_boxplot(data = nuc, aes(x = FileFrom, y = log(PI), fill = FileFrom)) +
+    scale_fill_manual(values = mycols) +
+    xlab("Country") +
+    ylab("Nucleotide Diversity (π)") +
+    ggtitle("π across each chromsomes") +
+    guides(fill = guide_legend(title = "Country")) +
+    theme_classic() +
+    theme(strip.text = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    legend.position = "None",
+    axis.text = element_text(size = 18, angle = 45, hjust =1),
+    axis.title = element_text(size = 18),
+    title = element_text(size = 20))
+
+
 
 ## make into a table
 

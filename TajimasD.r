@@ -15,7 +15,7 @@ rm(list = ls())
 #nuc <- read.csv("all_nuc_div_window_10kb.windowed.pi", sep = "\t", header = TRUE)
 
 files <- list.files(pattern = "*tajima_window_10kb.Tajima.D")
-
+files <- list.files(pattern = "*tajima_window_20kb.Tajima.D")
 countries <- c()
 dataframes <- c()
 
@@ -70,7 +70,7 @@ for (i in unique(nuc$FileFrom)){
     sub = nuc[nuc$FileFrom == i,]
 
     plot <- ggplot() + 
-        geom_point(data = sub, aes(x = BIN_START, y = TajimaD)) +
+        geom_point(data = sub, aes(x = BIN_START, y = TajimaD), alpha = 0.5) +
         facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
         #geom_hline(yintercept = mean(sub$PI), colour = "firebrick") +
         xlab("Position") +
@@ -84,7 +84,29 @@ for (i in unique(nuc$FileFrom)){
     print(i)
     print(plot)
     ggsave(paste0(i, "_tajima_plot.jpeg"), plot)
+
     }
+
+
+## boxplot to compare all countries
+#mycols <- c("#db7376", "#52a884", "#bc80bd", "#465c7a", "#ffaa5c", "#480355", "#97B2D8", "#D1CFE2")
+#mycols <- c("#c7522a", "#e5c185", "#f0daa5", "#fbf2c4", "#b8cdab", "#74a892", "#008585", "#004343")
+mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"), n = 8)
+
+ggplot() +
+    geom_boxplot(data = nuc, aes(x = FileFrom, y = TajimaD, fill = FileFrom)) +
+    scale_fill_manual(values = mycols) +
+    xlab("Country") +
+    ylab("Tajimas D") +
+    ggtitle("Tajima's D across each chromsomes") +
+    guides(fill = guide_legend(title = "Country")) +
+    theme_classic() +
+    theme(strip.text = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    legend.position = "None",
+    axis.text = element_text(size = 18, angle = 45, hjust =1),
+    axis.title = element_text(size = 18),
+    title = element_text(size = 20))
 
 ## to plot individually
 ggplot() + 
@@ -114,4 +136,17 @@ for (i in unique(nuc$FileFrom)){
 }
 
 head(table)
-write.csv(table, "Tajima_summary.csv")
+write.csv(table, "Tajima_summary_20kbp.csv")
+
+nuc2 <- nuc[!(is.nan(nuc$TajimaD)),]
+high_taj <- nuc2 %>% top_n(TajimaD, n = 50)
+low_taj <- nuc2 %>% slice_min(TajimaD, n = 50)
+
+top_pos <- nuc2%>% filter(TajimaD > 2.5) %>% group_by(BIN_START) %>% summarise(n = n())
+low_pos <- nuc2%>% filter(TajimaD < -2.5) %>% group_by(BIN_START) %>% summarise(n = n())
+
+high_taj_2.5 <- nuc %>% filter(TajimaD >2.5 | TajimaD < -2.5)
+
+table(high_taj_2.5$FileFrom)
+table(high_taj_2.5$CHROM)
+table(high_taj_2.5$CHROM, high_taj_2.5$FileFrom)
