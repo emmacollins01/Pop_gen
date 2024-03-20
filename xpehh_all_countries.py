@@ -43,85 +43,160 @@ df_samples.groupby(by=['Country']).count
 
 sample_ids = callset['samples'][:]
 
-# %% Create arrays needed for Puerto Rico samples
-# Get sample identifiers for Puerto Rico samples from df_samples
-cam_sample_ids = df_samples[df_samples['Country'] == 'Puerto Rico']['ID'].values
-# Find indices of these samples in the genotype array
-cam_indices = np.array([np.where(sample_ids == id)[0][0] for id in cam_sample_ids if id in sample_ids])
-# Verify the indices are within the correct range
-print("Max index:", cam_indices.max(), "Sample array size:", len(sample_ids))
-# Select genotypes for Cameroon samples using the indices
-gt_cam_samples = gt.take(cam_indices, axis=1)
 
-# %% Create arrays needed for Bijagos samples
-# Get sample identifiers for Bijagos samples from df_samples
-bij_sample_ids = df_samples[df_samples['Country'] == 'Mexico']['ID'].values
-# Find indices of these samples in the genotype array
-bij_indices = np.array([np.where(sample_ids == id)[0][0] for id in bij_sample_ids if id in sample_ids])
-# Verify the indices are within the correct range
-print("Max index:", bij_indices.max(), "Sample array size:", len(sample_ids))
-# Select genotypes for Cameroon samples using the indices
-gt_bij_samples = gt.take(bij_indices, axis=1)
+#%% make array for each country
 
-# %% these are from a phased VCF so we can convert the genotype arrays to haplotype arrays
+sample_indices = {}  # Dictionary to store sample indices
 
-h_array_cameroon = gt_cam_samples.to_haplotypes().compute()
-h_array_cameroon
+for country in np.unique(df_samples.Country):
+    country_samples = df_samples[df_samples['Country'] == country]['ID'].values
+    sample_indices[f"{country}_samples"] = country_samples
+    #globals()[f"gt_{country}"] = filtered_gt.take(country_samples, axis=1)
+    #globals()[f"h_{country}_seg"] = globals()[f"gt_{country}"].to_haplotypes().compute()
+    globals()[f"{country}_indicies"] = np.array([np.where(sample_ids == id)[0][0] for id in country_samples if id in sample_ids]) 
+    print("Max index:", globals()[f"{country}_indicies"].max(), "Sample array size:", len(sample_ids))
+    globals()[f"gt_{country}_samples"] = gt.take(globals()[f"{country}_indicies"], axis=1)
 
-h_array_bijagos = gt_bij_samples.to_haplotypes().compute()
-h_array_bijagos
+    globals()[f"h_array_{country}"] = globals()[f"gt_{country}_samples"].to_haplotypes().compute()
+
+
+
 
 # %% we need variant positions
 pos = callset['variants/POS'][:]
 chrom = callset['variants/CHROM'][:]
 
+
+#%%
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+import itertools
+
 # %% compute xpehh
-# xpehh_raw = allel.xpehh(h_sus, h_res, pos, map_pos=None, min_ehh=0.05, include_edges=False, gap_scale=20000, max_gap=20000, is_accessible=None, use_threads=True)
-xpehh_raw = allel.xpehh(h_array_bijagos, h_array_cameroon, pos, use_threads=True)
-xpehh_raw
+for i in range(0,56):
+    country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
+    country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
+    globals()[f"xpehh_raw_{country1}_{country2}"] = allel.xpehh(globals()[f"h_array_{country1}"], globals()[f"h_array_{country2}"], pos, use_threads=True)
+
+
 
 # %% look for where the biggest signal is
+for i in range(0,56):
+    country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
+    country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
+
+    fig, ax = plt.subplots()
+    ax.hist(globals()[f"xpehh_raw_{country1}_{country2}"][~np.isnan(globals()[f"xpehh_raw_{country1}_{country2}"])], bins=20)
+    ax.set_xlabel('Raw XP-EHH')
+    ax.set_ylabel('Frequency (no. variants)');
+
+    allele_counts_array = gt.count_alleles(max_allele=3).compute()
+    globals()[f"xpehh_std_{country1}_{country2}"] = allel.standardize_by_allele_count(globals()[f"xpehh_raw_{country1}_{country2}"], allele_counts_array[:, 1])
+
+    fig, ax = plt.subplots()
+    ax.hist(globals()[f"xpehh_std_{country1}_{country2}"][0][~np.isnan(globals()[f"xpehh_std_{country1}_{country2}"][0])], bins=20)
+    ax.set_xlabel('Raw XP-EHH')
+    ax.set_ylabel('Frequency (no. variants)');
+
+    # define chromosome lengths and colours 
+    chromosome_lengths = {
+    '035159': 16790,
+    '035107': 310827022,
+    '035108': 474425716,
+    '035109': 409777670}
+
+    # Calculate cumulative offsets for each chromosome
+    cumulative_lengths = {}
+    cumulative_length = 0
+    for chrom, length in chromosome_lengths.items():
+        cumulative_lengths[chrom] = cumulative_length
+        cumulative_length += length
+
+    # Set threshold
+    upper_threshold = 5
+    lower_threshold = -5
+
+    # Set up the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Ensure that pos, chrom, and xpehh_std are all numpy arrays to support advanced indexing
+    pos = np.array(callset['variants/POS'][:])
+    chrom = np.array(callset['variants/CHROM'][:])
+    xpehh_standardised_values = np.array(globals()[f"xpehh_std_{country1}_{country2}"][0])
+
+ 
+    # Define colors for each chromosome (for illustration)
+    #chromosome_colours = {
+    #'035107': '#3d348b', '035108': '#f18701', '035109': '#f7b801', '035159': '#f35b04'}
+    chromosome_colours = {
+    '035107': '#ffaa5c', '035108': '"#bc80bd', '035109': '#40476D', '035159': '#51A3A3'}
+    
+    # Set up the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Create a list to hold the legend patches
+    legend_patches = []
+
+    # Filtered chromosomes list, assuming cumulative_lengths are defined for these
+    #filtered_chroms = ['2L', '2R', '3L', '3R', 'anop_X', 'anop_mito']
+    filtered_chroms = ['035107', '035108', '035109', '035159']
+
+    # Iterate through each chromosome to plot its variants
+    for unique_chrom in filtered_chroms:
+        chrom_mask = chrom == unique_chrom
+    
+        chrom_positions = pos[chrom_mask]
+        chrom_xpehh_values = xpehh_standardised_values[chrom_mask]
+    
+        non_nan_mask = ~np.isnan(chrom_xpehh_values)
+        chrom_positions_no_nan = chrom_positions[non_nan_mask]
+        chrom_xpehh_values_no_nan = chrom_xpehh_values[non_nan_mask]
+    
+        adjusted_positions = chrom_positions_no_nan + cumulative_lengths.get(unique_chrom, 0)
+
+        # Conditions for plotting
+        solid_mask = (chrom_xpehh_values_no_nan >= upper_threshold) | (chrom_xpehh_values_no_nan <= lower_threshold)
+        faded_mask = ~solid_mask
+    
+        # Plot solid points for values above 5 or below -5
+        ax.scatter(adjusted_positions[solid_mask], 
+               chrom_xpehh_values_no_nan[solid_mask], 
+               color=chromosome_colours[unique_chrom], alpha=1.0, s=10)
+    
+        # Plot faded points for other values
+        ax.scatter(adjusted_positions[faded_mask], 
+               chrom_xpehh_values_no_nan[faded_mask], 
+               color=chromosome_colours[unique_chrom], alpha=0.1, s=10)
+    
+        # Add patch for the legend
+        patch = mpatches.Patch(color=chromosome_colours[unique_chrom], label=unique_chrom)
+        legend_patches.append(patch)
+
+    # Add significance threshold lines and legend
+    ax.axhline(y=upper_threshold, color='black', linestyle='--', label='{country1} Threshold')
+    ax.axhline(y=lower_threshold, color='black', linestyle='--', label='{country2} Threshold')
+    ax.legend(handles=legend_patches, title='Chromosome', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Set labels
+    ax.set_xlabel('Genomic Position (bp)')
+    ax.set_ylabel('XP-EHH')
+    plt.tight_layout()
+    plt.title(f'Plot {country1} against {country2}')
+    #filename = f'plot_{country1}_{country2}.png'
+    #plt.savefig(filename)
+    plt.show()
+
+
+    
+################################################
+#%%
 xpehh_hit_max = np.nanargmax(xpehh_raw)
 xpehh_hit_max
 
 # %% genomic position of top hit
 pos[xpehh_hit_max]
 
-# %% Plot the raw xp-ehh values
-
-fig, ax = plt.subplots()
-ax.hist(xpehh_raw[~np.isnan(xpehh_raw)], bins=20)
-ax.set_xlabel('Raw XP-EHH')
-ax.set_ylabel('Frequency (no. variants)');
-
-# %% standardise xpehh-raw
-
-allele_counts_array = gt.count_alleles(max_allele=3).compute()
-xpehh_std = allel.standardize_by_allele_count(xpehh_raw, allele_counts_array[:, 1])
-
-# %% plot standardised xp-ehh values
-
-fig, ax = plt.subplots()
-ax.hist(xpehh_std[0][~np.isnan(xpehh_std[0])], bins=20)
-ax.set_xlabel('Raw XP-EHH')
-ax.set_ylabel('Frequency (no. variants)');
-
-# %% Plot standardized xp-ehh
-
-# define chromosome lengths and colours 
-chromosome_lengths = {
-    '035159': 16790,
-    '035107': 310827022,
-    '035108': 474425716,
-    '035109': 409777670
-}
-
-# Calculate cumulative offsets for each chromosome
-cumulative_lengths = {}
-cumulative_length = 0
-for chrom, length in chromosome_lengths.items():
-    cumulative_lengths[chrom] = cumulative_length
-    cumulative_length += length
 
 # %% Plot XP-EHH
 
@@ -143,7 +218,7 @@ import numpy as np
 
 # Define colors for each chromosome (for illustration)
 chromosome_colours = {
-    '035107': '#3d348b', '035108': '#f18701', '035109': '#f7b801', '035159': '#f35b04'
+    '035107': '#ffaa5c', '035108': '"#bc80bd', '035109': '#40476D', '035159': '#51A3A3'
 }
 
 # Set threshold
