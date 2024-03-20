@@ -15,13 +15,13 @@ import matplotlib.patches as mpatches
 import gffutils
 
 # %% set wd
-os.chdir('/mnt/storage12/emma/selection/')
+os.chdir('/mnt/storage12/emma/selection/xpehh/')
 os.getcwd()
 
 # %%
 # convert phased, filtered, VCF file to zarr file
 # already converted to zarr
-#allel.vcf_to_zarr('2019melasglobal_finalfiltered_gambiaealigned_phased.vcf.gz', '2019melasglobal_finalfiltered_gambiaealigned_phased.zarr', fields='*', overwrite=True)
+#allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.main_chrom_only_renamed.phased.vcf.gz', 'all_aedes_lmiss_phased_rename_chrom.zarr', fields='*', overwrite=True)
 
 # %%
 callset = zarr.open('all_aedes_lmiss_phased.zarr', mode='r')
@@ -86,32 +86,33 @@ for i in range(0,56):
     country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
     country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
 
-    fig, ax = plt.subplots()
-    ax.hist(globals()[f"xpehh_raw_{country1}_{country2}"][~np.isnan(globals()[f"xpehh_raw_{country1}_{country2}"])], bins=20)
-    ax.set_xlabel('Raw XP-EHH')
-    ax.set_ylabel('Frequency (no. variants)');
+    #fig, ax = plt.subplots()
+    #ax.hist(globals()[f"xpehh_raw_{country1}_{country2}"][~np.isnan(globals()[f"xpehh_raw_{country1}_{country2}"])], bins=20)
+    #ax.set_xlabel('Raw XP-EHH')
+    #ax.set_ylabel('Frequency (no. variants)');
 
     allele_counts_array = gt.count_alleles(max_allele=3).compute()
     globals()[f"xpehh_std_{country1}_{country2}"] = allel.standardize_by_allele_count(globals()[f"xpehh_raw_{country1}_{country2}"], allele_counts_array[:, 1])
 
-    fig, ax = plt.subplots()
-    ax.hist(globals()[f"xpehh_std_{country1}_{country2}"][0][~np.isnan(globals()[f"xpehh_std_{country1}_{country2}"][0])], bins=20)
-    ax.set_xlabel('Raw XP-EHH')
-    ax.set_ylabel('Frequency (no. variants)');
+    #fig, ax = plt.subplots()
+    #ax.hist(globals()[f"xpehh_std_{country1}_{country2}"][0][~np.isnan(globals()[f"xpehh_std_{country1}_{country2}"][0])], bins=20)
+    #ax.set_xlabel('Raw XP-EHH')
+    #ax.set_ylabel('Frequency (no. variants)');
 
-    # define chromosome lengths and colours 
+  # define chromosome lengths and colours 
     chromosome_lengths = {
     '035159': 16790,
     '035107': 310827022,
     '035108': 474425716,
-    '035109': 409777670}
+    '035109': 409777670 }
 
-    # Calculate cumulative offsets for each chromosome
+    #Calculate cumulative offsets for each chromosome
     cumulative_lengths = {}
     cumulative_length = 0
     for chrom, length in chromosome_lengths.items():
         cumulative_lengths[chrom] = cumulative_length
         cumulative_length += length
+
 
     # Set threshold
     upper_threshold = 5
@@ -130,8 +131,9 @@ for i in range(0,56):
     #chromosome_colours = {
     #'035107': '#3d348b', '035108': '#f18701', '035109': '#f7b801', '035159': '#f35b04'}
     chromosome_colours = {
-    '035107': '#ffaa5c', '035108': '"#bc80bd', '035109': '#40476D', '035159': '#51A3A3'}
-    
+    '035107': '#ffaa5c', '035108': '#F45739', '035109': '#40476D', '035159': '#51A3A3'}
+    #DB7376
+   #F45739 
     # Set up the plot
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -183,12 +185,54 @@ for i in range(0,56):
     ax.set_ylabel('XP-EHH')
     plt.tight_layout()
     plt.title(f'Plot {country1} against {country2}')
-    #filename = f'plot_{country1}_{country2}.png'
-    #plt.savefig(filename)
+    filename = f'plot_{country1}_{country2}.png'
+    plt.savefig(filename)
     plt.show()
+    plt.clf()
+
+    globals()[f"{country1}_threshold_mask"] = xpehh_standardised_values >= upper_threshold
+    globals()[f"{country2}_threshold_mask"] = xpehh_standardised_values >= lower_threshold
+
+    country1_significant_chrom = chrom[globals()[f"{country1}_threshold_mask"]]
+    country1_significant_pos = pos[globals()[f"{country1}_threshold_mask"]]
+    country1_significant_xpehh = xpehh_standardised_values[globals()[f"{country1}_threshold_mask"]]
+    country1_array = np.full(len(country1_significant_xpehh), country1)
+    comparison1_array = np.full(len(country1_significant_xpehh), country2) 
+
+    country2_significant_chrom = chrom[globals()[f"{country2}_threshold_mask"]]
+    country2_significant_pos = pos[globals()[f"{country2}_threshold_mask"]]
+    country2_significant_xpehh = xpehh_standardised_values[globals()[f"{country2}_threshold_mask"]]
+    country2_array = np.full(len(country1_significant_xpehh), country2)
+    comparison2_array = np.full(len(country2_significant_xpehh), country1)  
+
+    # Combine the filtered data into a structured array
+    country1_significant_xpehh_data = np.column_stack((country1_significant_chrom, country1_significant_pos, country1_significant_xpehh, country1_array, comparison1_array))
+    country2_significant_xpehh_data = np.column_stack((country2_significant_chrom, country2_significant_pos, country2_significant_xpehh, country2_array, comparison2_array))
+
+    filename1 = f'data_{country1}_sig_against_{country2}'
+    filename2 = f'data_{country2}_sig_against_{country1}' 
+
+    # Convert the structured array to a pandas DataFrame for easier handling
+    df_significant_1_xpehh = pd.DataFrame(country1_significant_xpehh_data, columns=['Chromosome', 'Position', 'XPEHH', 'Country1', 'Country2'])
+    df_significant_2_xpehh = pd.DataFrame(country2_significant_xpehh_data, columns = ['Chromosome', 'Position', 'XPEHH', 'Country1', 'Country2'])
 
 
-    
+    # Save to csv
+    df_significant_1_xpehh.to_csv(f'df_significant_xpehh_threshold_{country1}_against{country2}.csv', index=False)
+    df_significant_2_xpehh.to_csv(f'df_significant_xpehh_threshold_{country2}_against{country1}.csv', index=False)
+
+    #all_data_array = []
+
+    #all_data_array.append(df_significant_1_xpehh)
+
+################################################
+################################################
+#%%
+#bind dataframes
+
+
+
+
 ################################################
 #%%
 xpehh_hit_max = np.nanargmax(xpehh_raw)
@@ -198,89 +242,14 @@ xpehh_hit_max
 pos[xpehh_hit_max]
 
 
-# %% Plot XP-EHH
-
-# Set threshold
-bijagos_threshold = 5
-cameroon_threshold = -5
-
-# Set up the plot
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Ensure that pos, chrom, and xpehh_std are all numpy arrays to support advanced indexing
-pos = np.array(callset['variants/POS'][:])
-chrom = np.array(callset['variants/CHROM'][:])
-xpehh_standardised_values = np.array(xpehh_std[0])
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
-
-# Define colors for each chromosome (for illustration)
-chromosome_colours = {
-    '035107': '#ffaa5c', '035108': '"#bc80bd', '035109': '#40476D', '035159': '#51A3A3'
-}
-
-# Set threshold
-bijagos_threshold = 5
-cameroon_threshold = -5
-
-# Set up the plot
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Create a list to hold the legend patches
-legend_patches = []
-
-# Filtered chromosomes list, assuming cumulative_lengths are defined for these
-#filtered_chroms = ['2L', '2R', '3L', '3R', 'anop_X', 'anop_mito']
-filtered_chroms = ['035107', '035108', '035109', '035159']
-
-# Iterate through each chromosome to plot its variants
-for unique_chrom in filtered_chroms:
-    chrom_mask = chrom == unique_chrom
-    
-    chrom_positions = pos[chrom_mask]
-    chrom_xpehh_values = xpehh_standardised_values[chrom_mask]
-    
-    non_nan_mask = ~np.isnan(chrom_xpehh_values)
-    chrom_positions_no_nan = chrom_positions[non_nan_mask]
-    chrom_xpehh_values_no_nan = chrom_xpehh_values[non_nan_mask]
-    
-    adjusted_positions = chrom_positions_no_nan + cumulative_lengths.get(unique_chrom, 0)
-
-    # Conditions for plotting
-    solid_mask = (chrom_xpehh_values_no_nan >= bijagos_threshold) | (chrom_xpehh_values_no_nan <= cameroon_threshold)
-    faded_mask = ~solid_mask
-    
-    # Plot solid points for values above 5 or below -5
-    ax.scatter(adjusted_positions[solid_mask], 
-               chrom_xpehh_values_no_nan[solid_mask], 
-               color=chromosome_colours[unique_chrom], alpha=1.0, s=10)
-    
-    # Plot faded points for other values
-    ax.scatter(adjusted_positions[faded_mask], 
-               chrom_xpehh_values_no_nan[faded_mask], 
-               color=chromosome_colours[unique_chrom], alpha=0.1, s=10)
-    
-    # Add patch for the legend
-    patch = mpatches.Patch(color=chromosome_colours[unique_chrom], label=unique_chrom)
-    legend_patches.append(patch)
-
-# Add significance threshold lines and legend
-ax.axhline(y=bijagos_threshold, color='black', linestyle='--', label='Bijagos Threshold')
-ax.axhline(y=cameroon_threshold, color='black', linestyle='--', label='Cameroon Threshold')
-ax.legend(handles=legend_patches, title='Chromosome', bbox_to_anchor=(1.05, 1), loc='upper left')
-
-# Set labels
-ax.set_xlabel('Genomic Position (bp)')
-ax.set_ylabel('XP-EHH')
-plt.tight_layout()
-plt.show()
 
 # %% list all positions with xpehh value over or below a certain threshold
+for i in range(0,56):
+    country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
+    country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
 
-bijagos_threshold_mask = xpehh_standardised_values >= bijagos_threshold
-cameroon_threshold_mask = xpehh_standardised_values <= cameroon_threshold
+    globals()[f"{countrbijagos_threshold_mask = xpehh_standardised_values >= bijagos_threshold
+    cameroon_threshold_mask = xpehh_standardised_values <= cameroon_threshold
 
 # %% Apply the mask to filter the data
 bij_significant_chrom = chrom[bijagos_threshold_mask]
