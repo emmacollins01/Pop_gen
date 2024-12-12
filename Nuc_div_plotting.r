@@ -20,7 +20,12 @@ rm(nuc, x)
 
 files <- list.files(pattern = "*z_nuc_div_window_10kb.windowed.pi")
 files <- list.files(pattern = "*z_nuc_div_window_20kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_100kb.windowed.pi")
 files <- list.files(pattern = "*z_nuc_div_window_300kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_500kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_1000kb.windowed.pi")
+files <- list.files(pattern = "*z_nuc_div_window_5000kb.windowed.pi")
+
 countries <- c()
 dataframes <- c()
 
@@ -53,6 +58,8 @@ for (i in 1:length(files)){
 # check added column for country
 head(Kenya)
 
+table(all$country_name, all$PI)
+
 ## combine all dataframes together - now they have country column
 dataframes <- Filter(function(x) is(x, "data.frame"), mget(ls()))
 all <- do.call(rbind, dataframes)
@@ -73,8 +80,69 @@ nuc$FileFrom[nuc$FileFrom == "Burkina_Faso"] <- "Burkina Faso"
 nuc$FileFrom[nuc$FileFrom == "Puerto_Rico"] <- "Puerto Rico"
 colnames(nuc)
 options(scipen = 0)
+options(scipen = 999)
 library(unikn)
+mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"), n = 8)
 
+summary <- nuc %>% group_by(FileFrom, CHROM) %>% summarise(mean = mean(PI))
+summary
+summary2 <- nuc %>% group_by(FileFrom) %>% summarise(mean = mean(PI))
+summary3 <- nuc %>% group_by(CHROM) %>% summarise(mean = mean(PI))
+
+summary(nuc$PI)
+
+pr_plot <- ggplot() + 
+geom_line(data = nuc[nuc$FileFrom == "Puerto Rico" & nuc$CHROM != "MT",], aes(x = BIN_START, y = PI), alpha = 0.8, colour = "#709C94", size = 1.2) +
+facet_wrap(~CHROM, scale = "free_x", nrow = 3) +
+xlab("Position") +
+ylab("Nucleotide Diversity (π)") +
+theme_classic() +
+theme(axis.text = element_text(size = 22),
+axis.title = element_text(size = 22),
+strip.text = element_text(size =22))
+
+x <- nuc %>% filter(FileFrom == "Puerto Rico") %>% slice_max(PI, n = 20)
+x
+options(scipen)
+all_plot <- ggplot() + 
+geom_line(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = PI, colour = FileFrom), alpha = 0.8, size = 1.2) +
+facet_wrap(~CHROM, scale = "free_x", nrow = 3) +
+scale_colour_manual(values = mycols) +
+xlab("Position") +
+ylab("Nucleotide Diversity (π)") +
+theme_classic() +
+guides(color = guide_legend(override.aes = list(size=5))) +
+theme(
+legend.title = element_blank(),
+axis.title = element_text(size = 22),
+strip.background = element_rect(fill = "#a8bac3"),
+legend.position = "bottom",
+axis.text = element_text(size = 18, angle = 45, hjust =1, vjust = -1),
+legend.text = element_text(size = 20),
+strip.text = element_text(size =22),
+legend.key.width = unit(5,"line"))
+
+
+ggplot() + 
+geom_line(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = PI, colour = FileFrom), alpha = 0.8) +
+facet_wrap(~CHROM, scale = "free_x", nrow = 3) +
+scale_fill_manual(values = mycols) +
+xlab("Position") +
+ylab("Nucleotide Diversity (π)") +
+theme_classic() +
+guides(color = guide_legend(override.aes = list(size=5))) +
+theme(axis.text = element_text(size = 22),
+strip.background = element_rect(fill = "#a8bac3"),
+axis.title = element_text(size = 22),
+legend.position = "bottom",
+legend.text = element_text(size = 22),
+strip.text = element_text(size =22),
+legend.key.width = unit(5,"line"))
+
+all_plot
+library(patchwork)
+both <- pr_plot + all_plot
+both
 ### BOXPLOTS ###
 mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"), n = 8)
 #mycols <- unikn::usecol(c("#CDD3D5", "#75B8C8", "#197278", "#03045E", "#922D50"), n = 8)
@@ -85,7 +153,8 @@ mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"
         scale_y_continuous(limits = c(0, 0.0015)) +
         xlab("") +
         ylab("Nucleotide DIversity (π)") +
-        ggtitle("Nucleotide diversity across each chromsome \n (window size 20kbp)") +
+        ylim(c(0,0.00065))+
+        ggtitle("Nucleotide diversity across each chromsome \n (window size 100kbp)") +
         guides(fill = guide_legend(title = "Country")) +
         theme_classic() +
         theme(strip.text = element_text(size = 20),
@@ -102,8 +171,9 @@ mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"
         scale_fill_manual(values = mycols) +
         scale_y_continuous(limits = c(0, 0.0015)) +
         xlab("") +
-        ylab("Nucleotide DIversity (π)") +
-        ggtitle("Nucleotide diversity for each population \n(window size 20kb)") +
+        #ylab("Nucleotide DIversity (π)") +
+        ylim(c(0,0.00065))+
+        ggtitle("Nucleotide diversity for each population \n(window size 100kb)") +
         guides(fill = guide_legend(title = "Country")) +
         theme_classic() +
         theme(strip.text = element_text(size = 20),
@@ -121,11 +191,11 @@ nuc_div_plot
 
 ## scatter grid per chromosome and country
 ggplot() + 
-        geom_point(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = PI, alpha = 0.4)) +
+        geom_line(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = PI, alpha = 0.4)) +
         facet_grid(vars(FileFrom), vars(CHROM), scales = "free_x") +
-        geom_hline(yintercept = mean(sub$PI), colour = "#a8bac3", size = 1.5) +
+        #geom_hline(yintercept = mean(sub$PI), colour = "#a8bac3", size = 1.5) +
         xlab("") +
-        ylab("Pi Value") +
+        ylab("Nucleotide Diversity (π)") +
         #ggtitle(paste0("Nuclotide diversity across each chromsomes for ", sub$FileFrom[1])) +
         #ggtitle(paste0(nuc$FileFrom[1])) +
         theme_classic() +

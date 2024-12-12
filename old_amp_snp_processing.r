@@ -6,6 +6,7 @@ library(dplyr)
 library(stringr)
 library(ggplot2)
 library(tidyverse)
+library(tidyr)
 
 ########################################################################
 ############################# ADD DATA #############################
@@ -19,9 +20,14 @@ colnames(df) <- c("SAMPLE", "CHROM", "POS", "REF", "ALT", "QUAL", "GT", "ALLELE"
 ## remove all positions without a call
 df <- subset(df, GT != "./.")
 
+df$GT[df$GT == "0|1"] <- "0/1"
+df$GT[df$GT == "1|1"] <- "1/1"
+
 ## Add metadata
 metadata <- read.csv("/mnt/storage12/emma/PR_combine/all_sample_country_metadata.csv")
 df$Country <- metadata$Country[match(df$SAMPLE, metadata$ID)]
+df$Region <- metadata$Region[match(df$SAMPLE, metadata$ID)]
+
 head(df)
 ## Add snp locations
 SNP_locs <- read.delim("/mnt/storage12/emma/PR_snps/IR_mut_pos.txt", header = TRUE)
@@ -29,11 +35,120 @@ SNP_locs <- read.delim("/mnt/storage12/emma/PR_snps/IR_mut_pos.txt", header = TR
 # snps per country
 country_snp <- df %>% group_by(Country) %>% summarise(n = n_distinct(CHROM,POS))
 
+unique(df$POS)
+
+## match to gene
+df$gene <- NA
+for (i in 1:nrow(df)){
+
+  if(grepl("LOC5567355", df$ANN[i])){
+    df$gene[i] <- "VGSC"
+  }
+  else if(grepl("LOC5570466", df$ANN[i])){
+    df$gene[i] <- "RDL"
+  }
+  else if(grepl("LOC5578456", df$ANN[i])){
+    df$gene[i] <- "ACE"
+  }
+  else if(grepl("LOC110676855", df$ANN[i])){
+    df$gene[i] <- "GSTE"
+  }
+  else{
+    df$gene[i] <- "other"
+  }
+}
+
+unique(df$gene)
+table(df$gene, df$Country)
+
+missense <- df[grep("missense_variant", df$ANN),]
+missense_no_ref <- missense[missense$GT != "0/0",]
+length(unique(missense$POS))
+length(unique(missense_no_ref$POS))
+gene_mis <- missense %>% group_by(gene) %>% summarise(n = n_distinct(POS))
+gene_mis
+gene_mis <- missense %>% group_by(gene, Country) %>% summarise(n = n_distinct(POS))
+gene_mis
+unique(missense$POS)
+
+ggplot(data = gene_mis, aes(x = gene, y =n,  fill = Country))+
+  geom_bar(stat = "identity", position = position_dodge(width =1))
+
+
+## allele frequency per country and region
+missense_region <- missense %>% group_by(CHROM, POS, GT, Region) %>% summarise(count = n())
+missense_region_sum <- missense %>% group_by(CHROM, POS, Region) %>% summarise(total = n())
+missense_region$total <- missense_region_sum$total[match(paste0(missense_region$POS, missense_region$Region), paste0(missense_region_sum$POS, missense_region_sum$Region))]
+
+missense_region_wide <- spread(missense_region, GT, count)
+missense_region_wide$'0/0'[is.na(missense_region_wide$'0/0')] <- 0
+missense_region_wide$'0/1'[is.na(missense_region_wide$'0/1')] <- 0
+missense_region_wide$'1/1'[is.na(missense_region_wide$'1/1')] <- 0
+
+missense_region_wide$af <- (missense_region_wide$'0/1'+(missense_region_wide$'1/1'*2)) / (missense_region_wide$total*2)
+
+missense_wider <- missense_region_wide %>% select(-total, -'0/0', -'0/1', -'1/1')
+missense_wider <- spread(missense_wider, Region, af)
+
+write.csv(missense_wider, "../af_per_region_table.csv")
+
+
+## allele frequency for Puerto Rico
+missense_country <- missense %>% group_by(CHROM, POS, GT, Country) %>% summarise(count = n())
+missense_country_sum <- missense %>% group_by(CHROM, POS, Country) %>% summarise(total = n())
+missense_country$total <- missense_country_sum$total[match(paste0(missense_country$POS, missense_country$Country), paste0(missense_country_sum$POS, missense_country_sum$Country))]
+
+missense_country_wide <- spread(missense_country, GT, count)
+missense_country_wide$'0/0'[is.na(missense_country_wide$'0/0')] <- 0
+missense_country_wide$'0/1'[is.na(missense_country_wide$'0/1')] <- 0
+missense_country_wide$'1/1'[is.na(missense_country_wide$'1/1')] <- 0
+
+missense_country_wide$af <- (missense_country_wide$'0/1'+(missense_country_wide$'1/1'*2)) / (missense_country_wide$total*2)
+
+missense_wider <- missense_country_wide %>% select(-total, -'0/0', -'0/1', -'1/1')
+missense_wider <- spread(missense_wider, Country, af)
+
+write.csv(missense_wider, "../af_per_country_table.csv")
+
+############ synonymous #############
+
+synon <- df[grep("synonymous", df$ANN),]
+length(unique(synon$POS))
+
+table(synon$gene)
+synon_gene <- synon %>% group_by(gene) %>% summarise(n = n_distinct(POS))
+synon_gene <- synon %>% group_by(gene, Country) %>% summarise(n = n_distinct(POS))
+
+
+
+###################################################
+################### ONLY IR SNPS #################
+###################################################
 # IR snps per country
 df_mut <- df[df$POS %in% SNP_locs$POS,]
+df_mut <- df
+for (i in 1:nrow(df_mut)){
+  df_mut$effect[i] <- unlist(strsplit(df_mut$ANN[i], "\\|"))[[2]]
+  df_mut$csq[i] <- df_mut
+}
+df_mut <- df_mut[df_mut$effect != "synonymous_variant",]
+unique(df_mut$POS)
 df_mut_sum <- df_mut %>% group_by(SAMPLE, Country) %>% summarise(count = n())
 df_mut_sum <- df_mut_sum %>% group_by(Country) %>% summarise(n = n())
 head(df_mut_sum)
+
+unique(df_mut$effect)
+table(df_mut$gene[df_mut$effect == "missense_variant" | df_mut$effect == "missense_variant&splice_region_variant"])
+
+gene_mis <- df_mut[df_mut$effect == "missense_variant"| df_mut$effect == "missense_variant&splice_region_variant",]
+gene_mis2 <- gene_mis %>% group_by(as.factor(gene)) %>% summarise(n = n_distinct(POS))
+
+sum <- gene_mis %>% group_by(CHROM, POS, REF, ALT, GT, ALLELE, )
+
+# number of IR mutations per sample 0-4
+df_mut_sample <- df_mut %>% filter(GT != "0/0") %>% dplyr::group_by(SAMPLE, Country) %>% summarise(count = n_distinct(POS))
+# number of IR mutations per country 0-4
+df_mut_country <- df_mut %>% filter(GT != "0/0") %>% group_by(Country) %>% summarise(count = n_distinct(POS))
 
 ## MISSENSE
 missense <- df[grep("MODIFIER", df$ANN),]
@@ -68,6 +183,8 @@ df_mut_sum2$proportion <- signif((df_mut_sum2$count/df_mut_sum2$total)*100, 3)
 test <- df_mut_sum2 %>% group_by(Country) %>% summarise(sum = sum(proportion))
 
 mycols <- c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a")
+mycols <- c("#40476D", "#EE964B", "#749cb4",  "#A6C48A",  "#51A3A3")
+mycols <- c("#40476D", "#749cb4",  "#A6C48A", "#bc80bd")
 #mycols <- unikn::usecol(c("#CDD3D5", "#75B8C8", "#197278", "#03045E", "#922D50"), n = 5)
 #mycols <- c("#40476D", "#678D58", "#A6C48A","#52a884","#bc80bd","#51A3A3", "#7D387D", "#bc80bd")
 
@@ -88,7 +205,7 @@ plot1 <- ggplot(data = df_mut_sum2, aes(x = reorder(Country, count), y = count))
   theme(axis.text = element_text(size = 24, angle = 90),
         axis.title = element_text(size = 30),
         strip.text = element_text(size = 24),
-        legend.position = "none",
+        #legend.position = "none",
         legend.text = element_text(size = 20),
         legend.title = element_text(size = 20))
 
@@ -125,12 +242,22 @@ combined_plot
 dim(df)
 length(unique(df$POS))
 
+df_mut_prop  <- df %>% 
+                filter(POS %in% c(315939224, 315983763, 316080722,  41847790)) %>%
+                group_by(Country, POS, GT) %>% 
+                mutate(total = n()) %>% 
+                summarise(count = n(), .groups = "drop")
+
+
+df_total <- df_mut_prop %>% group_by(Country) %>% summarise(total = sum(count))
+df_mut_prop$total <- df_total$total[match(df_mut_prop$Country, df_total$Country)]
+df_mut_prop$proportion <- signif((df_mut_prop$count/df_mut_prop$total)*100, 3)
 
 
 ## make pie chart to show proportions
 mycols2 <- c("#40476D", "#678D58","#bc80bd","#51A3A3", "#7D387D", "#bc80bd")
-
-plot3 <- ggplot(df_mut_sum2, aes(x="", y=proportion, fill = as.factor(POS))) +
+mycols2 <- mycols
+plot3 <- ggplot(df_mut_prop, aes(x="", y=proportion, fill = as.factor(POS))) +
   geom_bar(stat="identity", width=1) +
   scale_fill_manual(values = mycols) +
   coord_polar("y", start=0) +
@@ -857,5 +984,6 @@ loc_snp_wide2 <- loc_snp_wide %>%
 # which missense SNPs found in all Countrys
 loc_snp2 <- missense_loc %>% group_by(POS, Country) %>% dplyr::summarise(n= n())
 loc_snp3 <- loc_snp2 %>% group_by(POS) %>% dplyr::summarise(n= n())
+
 
 

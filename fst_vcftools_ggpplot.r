@@ -91,6 +91,21 @@ df_sub$CHROM2[df_sub$CHROM == 35108] <- "Chromosome 2"
 df_sub$CHROM2[df_sub$CHROM == 35109] <- "Chromosome 3"
 df_sub$CHROM2[df_sub$CHROM == 35159] <- "Mitochondria"
 
+
+## check for NAs in mat bin file
+
+
+## most common 
+df_sub <- df_sub[!is.na(df_sub$WEIR_AND_COCKERHAM_FST),]
+
+ggplot() +
+    geom_histogram(data = df_sub, aes(x = WEIR_AND_COCKERHAM_FST))
+
+high <- df_sub[as.numeric(df_sub$WEIR_AND_COC) > 0.9,]
+nrow(high)
+summary(high$WEIR_AND_COCKERHAM_FST)
+write.csv(high, "fst_abov_0.9.csv")
+
 ### fst above 0.8
 df_sub$WEIR_AND_COCKERHAM_FST <- as.numeric(df_sub$WEIR_AND_COCKERHAM_FST)
 
@@ -103,9 +118,7 @@ summary_df <- df_sub %>%
     total_sites = as.numeric(sum(!is.na(WEIR_AND_COCKERHAM_FST))),
     Equals_1 = sum(WEIR_AND_COCKERHAM_FST == 1, na.rm = TRUE),
     proportion_above_0.8 = (Above_0.8 / total_sites)*100,
-    proportion_equals_1 = (Equals_1 /total_sites)*100
-    
-  )
+    proportion_equals_1 = (Equals_1 /total_sites)*100)
 
 
 summary_df %>% top_n(proportion_above_0.8, n = 10)

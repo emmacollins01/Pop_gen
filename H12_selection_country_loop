@@ -23,7 +23,7 @@ import random
 
 ## convert phased, filtered, VCF file to zarr file
 # %%
-allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.phased.vcf.gz.vcf.gz', 'all_aedes_lmiss_phased.zarr', fields='*', overwrite=True)
+#allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.phased.vcf.gz.vcf.gz', 'all_aedes_lmiss_phased.zarr', fields='*', overwrite=True)
 
 # %%
 callset = zarr.open('all_aedes_lmiss_phased.zarr', mode='r')
@@ -121,7 +121,6 @@ else:
 
 # %% H12 was calculated using phased biallelic SNPs in 1000 bp windows along the genome
 # SNP windows, using the garuds_h function in scikit-allel.
-# Working with Bissau samples only.
 
 # ######## Create Iterations ##########
 
@@ -133,7 +132,7 @@ else:
 
 # Number of iterations
 ## 200 initially
-n_iterations = 20
+n_iterations = 200
 
 # Initialize a list to store h12 values for each window across all iterations
 #iterated_brazil_h12_values = []
@@ -215,8 +214,9 @@ for country in np.unique(df_samples.Country):
         plt.scatter(globals()[f"{country}_h12_chrom"][chrom]['positions'], globals()[f"{country}_h12_chrom"][chrom]['h12'], alpha=0.6)
         plt.xlabel('Median position of SNP windows across the chromosome')
         plt.ylabel(f'Mean H12 value in {country} samples')
+        plt.ylim(0, 0.06)
         plt.title(f'Genome Wide Selection Scan of H12 Values across Chromosome {chrom} in {country}')
-        filename = f'H12_value_200_iterations_{chrom}.png'
+        filename = f'H12_value_200_iterations_{chrom}_{country}.png'
         plt.savefig(filename)
         plt.show()
 # Save the Bissau samples dictionary which contains chromsome, positions and h12 value.

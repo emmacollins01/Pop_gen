@@ -265,7 +265,8 @@ for country in np.unique(df_samples.Country):
 
     print("iHS plotted with all chromosomes")
 
-
+#%%
+#df.to_csv("all_ihs_significant_4.csv", index= None)
 ########################################### REMOVE NAS ################################
 
 # %% Remove NaN iHS values, and use the same mask to filter pos and chrom.
@@ -403,6 +404,18 @@ for country in np.unique(df_samples.Country):
     country_df = pd.DataFrame(country_df, columns= ['country', 'chrom', 'pos', 'pval'])
     all_data.append(country_df)
 
+    mask_pvalues = globals()[f"neg_log_pvals_{country}"]
+    ihs_positions = globals()[f"pos_withoutnan_{country}"]
+    ihs_chromosomes = globals()[f"chrom_withoutnan_{country}"]
+    ihs_values = globals()[f"neg_log_pvals_{country}"]
+    country_array = np.full(len(ihs_values), f"{country}")
+
+    print(country)
+    country_df2 = np.column_stack((country_array, ihs_chromosomes, ihs_positions, ihs_values))
+    country_df2 = pd.DataFrame(country_df2, columns= ['country', 'chrom', 'pos', 'pval'])
+    all_data2 = []
+    all_data2.append(country_df2)
+
     print("iHS p-values above threshold identified")
 
 
@@ -416,15 +429,42 @@ for country in np.unique(df_samples.Country):
 df = pd.concat(all_data, ignore_index = True)
 df.to_csv("all_ihs_significant_4.csv", index= None)
 
+df2 = pd.concat(all_data2, ignore_index = True)
+df2.to_csv("all_ihs_all_values.csv", index= None)
+
+
+#%%
+
+## try make file with pval and ihs value
+all_data3 = []
+for country in np.unique(df_samples.Country):
+    mask_pvalues = globals()[f"neg_log_pvals_{country}"]
+    ihs_positions = globals()[f"pos_withoutnan_{country}"]
+    ihs_chromosomes = globals()[f"chrom_withoutnan_{country}"]
+    ihs_pvalues = globals()[f"neg_log_pvals_{country}"]
+    ihs_values = globals()[f"ihs_vals_withoutnan_{country}"]
+    country_array = np.full(len(ihs_values), f"{country}")
+
+    print(country)
+    country_df3 = np.column_stack((country_array, ihs_chromosomes, ihs_positions, ihs_pvalues, ihs_values))
+    country_df3 = pd.DataFrame(country_df3, columns= ['country', 'chrom', 'pos', 'pval', 'ihs_value'])
+    all_data3.append(country_df3)
+
+df = pd.concat(all_data3, ignore_index = True)
+df.to_csv("/mnt/storage12/emma/ihs/all_ihs_value_and_pvalue.csv", index= None)
+
+
 # %% bring in the gff file to understand where each of these variants is
 
 print("Using GFF file to bring in annotations for these positions")
 
 # Parameters
 #input_file_name = f"significant_{country}_iHS_threshold_{threshold}.txt"
-input_file_name = "all_ihs_significant_4.csv"
+#input_file_name = "/mnt/storage12/emma/ihs/all_ihs_significant_4.csv"
+input_file_name = "/mnt/storage12/emma/ihs/all_ihs_all_values.csv"
 #output_file_name = f"significant_{country}_iHS_threshold_{threshold}_GFF_annotated.txt"
-output_file_name = "all_ihs_significant_4_annotated.csv"
+#output_file_name = "/mnt/storage12/emma/ihs/all_ihs_significant_4_annotated_20_june.csv"
+output_file_name = "/mnt/storage12/emma/ihs/all_ihs_all_values_annotated.csv"
 gff_file = '/mnt/storage12/emma/ihs/genes_numeric_chrom.gff'
 
 # Function to find and format the GFF line(s) that overlap a given position
@@ -480,3 +520,5 @@ print(f"iHS significant values identified and GFF annotations written here: {out
 
 
 
+
+# %%

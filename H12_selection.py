@@ -23,7 +23,7 @@ import random
 
 ## convert phased, filtered, VCF file to zarr file
 # %%
-allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.phased.vcf.gz.vcf.gz', 'all_aedes_lmiss_phased.zarr', fields='*', overwrite=True)
+#allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.phased.vcf.gz.vcf.gz', 'all_aedes_lmiss_phased.zarr', fields='*', overwrite=True)
 
 # %%
 callset = zarr.open('all_aedes_lmiss_phased.zarr', mode='r')
@@ -149,7 +149,7 @@ for _ in range(n_iterations):
     subset_brazil_hap_array = h_kenya_seg[:, column_indices]
 
     # Calculate h12 for the subsetted hap array
-    _, iterated_real_brazil_h12, _, _ = allel.moving_garud_h(subset_brazil_hap_array, 1000)
+    _, iterated_real_brazil_h12, _, _ = allel.moving_garud_h(subset_brazil_hap_array, 100)
 
     # Store the h12 value for each window in the list
     iterated_brazil_h12_values.append(iterated_real_brazil_h12)
@@ -167,7 +167,7 @@ num_windows_brazil = mean_brazil_h12_per_window.shape[0]
 print("Number of windows for brazil samples:", num_windows_brazil)
 
 # %% The h12 values are calculated in windows of 1000 SNPs. Each SNP has a POS value which is in the POS array.
-window_size = 1000  # Define the window size as 1000 SNPs
+window_size = 100  # Define the window size as 1000 SNPs
 num_windows = len(pos_filtered) // window_size  # Calculate the number of windows in total
 
 # %% Plot. Calculate the median genomic position for each window
@@ -190,11 +190,12 @@ for chrom in brazil_h12_chrom:
     plt.figure(figsize=(10, 6))
     plt.scatter(brazil_h12_chrom[chrom]['positions'], brazil_h12_chrom[chrom]['h12'], alpha=0.6)
     plt.xlabel('Median position of SNP windows across the chromosome')
-    plt.ylabel('Mean H12 value in Bijagos Archipelago Anopheles melas samples')
+    plt.ylabel('Mean H12 value')
     plt.title(f'Genome Wide Selection Scan of H12 Values across Chromosome {chrom}')
-    filename = f'H12_value_200_iterations_{chrom}.png'
-    plt.savefig(filename)
+    filename = f'H12_value_100_iterations_{chrom}.png'
+    #plt.savefig(filename)
     plt.show()
+#%%
 # Save the Bissau samples dictionary which contains chromsome, positions and h12 value.
 import csv
 with open('bissau_h12_chrom.csv', 'w', newline='') as file:

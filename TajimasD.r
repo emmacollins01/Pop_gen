@@ -16,6 +16,11 @@ rm(list = ls())
 
 files <- list.files(pattern = "*tajima_window_10kb.Tajima.D")
 files <- list.files(pattern = "*tajima_window_20kb.Tajima.D")
+files <- list.files(pattern = "*tajima_window_100kb.Tajima.D")
+files <- list.files(pattern = "*tajima_window_300kb.Tajima.D")
+files <- list.files(pattern = "*tajima_window_500kb.Tajima.D")
+files <- list.files(pattern = "*tajima_window_5000kb.Tajima.D")
+
 countries <- c()
 dataframes <- c()
 
@@ -53,7 +58,28 @@ dataframes <- Filter(function(x) is(x, "data.frame"), mget(ls()))
 all <- do.call(rbind, dataframes)
 head(all)
 
+## data set to write to csv
+summary(all$TajimaD)
+sig <- all[abs(all$TajimaD) >= 2,]
+sig <- subset(all, TajimaD > 2)
+sig2 <- subset(all, TajimaD < -2)
+sig <- rbind(sig, sig2)
+sig <- sig[complete.cases(sig),]
+nrow(sig)
+head(sig)
+summary(sig$TajimaD)
+summary(sig$N_SNPS)
+write.csv(sig, "all_sig_2_tajimasD_100kb.csv", row.names = FALSE)
+sig <- read.csv("/mnt/storage12/emma/nuc_div/all_sig_2_tajimasD_100kb.csv")
+head(sig)
+summary(sig$TajimaD)
+summary(all$TajimaD)
+table(sig$FileFrom)
+length(unique(paste(sig$CHROM, sig$BIN_START)))
 library(ggplot2)
+
+test <- sig %>% group_by(CHROM, BIN_START) %>% summarise(n= n())
+test2 <- sig %>% group_by(FileFrom) %>% summarise(count = n_distinct(unique(paste(CHROM, BIN_START))))
 
 ## Subset and change names of chromosomes if needed!
 nuc <- subset(all, CHROM %in% c(35107, 35108, 35109, 35159))
@@ -62,9 +88,44 @@ nuc$CHROM[nuc$CHROM == 35108] <- "2"
 nuc$CHROM[nuc$CHROM == 35109] <- "3"
 nuc$CHROM[nuc$CHROM == 35159] <- "MT"
 
-colnames(nuc)
-options(scipen = 999)
+# overall means
+summary(nuc$TajimaD)
+library(dplyr)
+nuc_median <- nuc[!is.na(nuc$TajimaD),] %>% group_by(FileFrom) %>% summarise(median = median(TajimaD))
+nuc_median <- nuc[!is.na(nuc$TajimaD),] %>% group_by(FileFrom, CHROM) %>% summarise(median = median(TajimaD))
 
+
+summary(nuc$TajimaD[nuc$FileFrom == "Puerto_Rico"])
+PR_taj <- nuc[nuc$FileFrom == "Puerto_Rico" & !is.na(nuc$TajimaD),]
+PR_taj_median <- PR_taj %>% group_by(CHROM) %>% summarise(median = median(TajimaD))
+
+colnames(nuc)
+options(scipen = 0)
+mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"), n = 8)
+
+library(ggplot2)
+all_plot <- ggplot() + 
+geom_line(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = TajimaD, colour = FileFrom), alpha = 1, size = 1.22) +
+facet_wrap(~CHROM, scale = "free_x", nrow = 3) +
+scale_colour_manual(values = mycols) +
+xlab("Position") +
+ylab("Tajima's D") +
+theme_classic() +
+guides(color = guide_legend(override.aes = list(size=5))) +
+theme(axis.text = element_text(size = 22),
+legend.title = element_blank(),
+axis.title = element_text(size = 22),
+legend.position = "bottom",
+legend.text = element_text(size = 22),
+strip.text = element_text(size =22),
+legend.key.width = unit(5,"line"))
+
+all_plot
+ggsave("Tajima_5MB_all.png", all_plot)
+
+
+
+###################################
 for (i in unique(nuc$FileFrom)){
 
     sub = nuc[nuc$FileFrom == i,]
@@ -87,6 +148,24 @@ for (i in unique(nuc$FileFrom)){
 
     }
 
+## scatter grid per chromosome and country
+ggplot() + 
+        geom_line(data = nuc[nuc$CHROM != "MT",], aes(x = BIN_START, y = TajimaD, alpha = 0.4)) +
+        facet_grid(vars(FileFrom), vars(CHROM), scales = "free_x") +
+        #geom_hline(yintercept = 2.5, colour = "#a8bac3", size = 1.5, alpha = 0.5) +
+        #geom_hline(yintercept = -2.5, colour = "#a8bac3", size = 1.5, alpha = 0.5) +
+        xlab("") +
+        ylab("Tajima's D Value") +
+        #ggtitle(paste0("Nuclotide diversity across each chromsomes for ", sub$FileFrom[1])) +
+        #ggtitle(paste0(nuc$FileFrom[1])) +
+        theme_classic() +
+        theme(strip.text = element_text(size = 16),
+        axis.text = element_text(size = 14, angle = 45, hjust =1),
+        axis.title = element_text(size = 18),
+        strip.background = element_rect(fill = "#a8bac3"),
+        legend.position = "none",
+        title = element_text(size = 18))
+
 
 ## boxplot to compare all countries
 #mycols <- c("#db7376", "#52a884", "#bc80bd", "#465c7a", "#ffaa5c", "#480355", "#97B2D8", "#D1CFE2")
@@ -96,8 +175,10 @@ mycols <-  unikn::usecol(c("#ffaa5c", "#db7376", "#52a884", "#bc80bd", "#465c7a"
 ggplot() +
     geom_boxplot(data = nuc, aes(x = FileFrom, y = TajimaD, fill = FileFrom)) +
     scale_fill_manual(values = mycols) +
-    xlab("Country") +
+    xlab("") +
     ylab("Tajimas D") +
+    geom_hline(yintercept = 2, linetype = "dashed") +
+    geom_hline(yintercept = -2, linetype = "dashed") +
     ggtitle("Tajima's D across each chromsomes") +
     guides(fill = guide_legend(title = "Country")) +
     theme_classic() +
@@ -105,12 +186,12 @@ ggplot() +
     legend.text = element_text(size = 18),
     legend.position = "None",
     axis.text = element_text(size = 18, angle = 45, hjust =1),
-    axis.title = element_text(size = 18),
+    axis.title = element_text(size = 24),
     title = element_text(size = 20))
 
 ## to plot individually
 ggplot() + 
-    geom_point(data = nuc, aes(x = BIN_START, y = TajimaD)) +
+    geom_point(data = nuc[nuc$FileFrom == "Puerto_Rico",], aes(x = BIN_START, y = TajimaD)) +
     facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
     #geom_hline(yintercept = 0.0006, colour = "firebrick") +
     xlab("Position") +
@@ -120,6 +201,25 @@ ggplot() +
     theme(strip.text = element_text(size = 20),
     axis.text = element_text(size = 16, angle = 45, hjust =1),
     axis.title = element_text(size = 18),
+    title = element_text(size = 20))
+
+ggplot() +
+    geom_boxplot(data = nuc[nuc$FileFrom == "Puerto_Rico" &nuc$CHROM != "MT",], aes(x = FileFrom, y = TajimaD, fill = FileFrom)) +
+    scale_fill_manual(values = "#709C94") +
+    facet_wrap(~CHROM, ncol = 4, scales = "free_x") +
+    ylab("Tajimas D") +
+    xlab("") +
+    geom_hline(yintercept = 2, linetype = "dashed") +
+    geom_hline(yintercept = -2, linetype = "dashed") +
+    ggtitle("Tajima's D per chromsomes for Puerto Rico") +
+    guides(fill = guide_legend(title = "Country")) +
+    theme_classic() +
+    theme(strip.text = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    legend.position = "None",
+    axis.text.x=element_blank(),
+    axis.text = element_text(size = 18, angle = 45, hjust =1),
+    axis.title.y = element_text(size = 24),
     title = element_text(size = 20))
 
 ## make into a table
@@ -136,17 +236,29 @@ for (i in unique(nuc$FileFrom)){
 }
 
 head(table)
-write.csv(table, "Tajima_summary_20kbp.csv")
+#write.csv(table, "Tajima_summary_20kbp.csv")
 
 nuc2 <- nuc[!(is.nan(nuc$TajimaD)),]
 high_taj <- nuc2 %>% top_n(TajimaD, n = 50)
 low_taj <- nuc2 %>% slice_min(TajimaD, n = 50)
 
 top_pos <- nuc2%>% filter(TajimaD > 2.5) %>% group_by(BIN_START) %>% summarise(n = n())
-low_pos <- nuc2%>% filter(TajimaD < -2.5) %>% group_by(BIN_START) %>% summarise(n = n())
+low_pos <- nuc2%>% filter(TajimaD < -2) %>% group_by(BIN_START) %>% summarise(n = n())
 
 high_taj_2.5 <- nuc %>% filter(TajimaD >2.5 | TajimaD < -2.5)
+
+length(unique(top_pos$BIN_START))
+length(unique(low_pos$BIN_START))
 
 table(high_taj_2.5$FileFrom)
 table(high_taj_2.5$CHROM)
 table(high_taj_2.5$CHROM, high_taj_2.5$FileFrom)
+
+## most common
+nuc_group <- nuc %>% filter(TajimaD > 2.5) %>% group_by(CHROM, BIN_START) %>% summarise(n= n()) %>% top_n(n, n = 20)
+nuc_group2 <- nuc %>% filter(TajimaD < -2.5) %>% group_by(CHROM, BIN_START) %>% summarise(n= n()) %>% top_n(n, n = 20)
+
+### PR
+chroms <- c(35107, 35018, 35109, 35159)
+PR_sub <- subset(Puerto_Rico, CHROM %in% chroms)
+PR_high <- subset(PR_sub, abs(TajimaD) > 2.5)
