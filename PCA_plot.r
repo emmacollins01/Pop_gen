@@ -4,7 +4,7 @@
 ##############################################################
 
 options(scipen=999) #this ensures analysis is in scientific notation
-install.packages("data.table")
+#install.packages("data.table")
 require(data.table) #allows you to read in dataframes
 require(ape) #popgen package
 require(qqman) #popgen package
@@ -25,6 +25,7 @@ library("RColorBrewer") #colouring
 #mat_bin <- read.delim("/mnt/storage12/emma/PR_combine/all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.mat.bin")
 #mat_bin <- read.delim("/mnt/storage12/emma/PR_combine/all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.indv_miss0.5.recode.mat.bin")
 mat_bin <- read.delim("/mnt/storage12/emma/PR_combine/all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.mat.bin")
+mat_bin <- read.delim("/mnt/storage12/emma/consensus/PR_only_WGS.mat.bin")
 mat_bin <- as.data.frame(mat_bin)
 
 # Read in metadata
@@ -32,7 +33,7 @@ metadata<-read.delim("/mnt/storage12/emma/PR_combine/all_sample_country_metadata
 metadata<-as.data.frame(metadata)
 
 ### You want to check that both the SNP matrix and the metadata have the same samples ###
-metadata <- metadata[(metadata$ID)%in%colnames(mat_bin),]
+metadata <- metadata[(metadata$ID) %in% colnames(mat_bin),]
 mat_bin_samples <- mat_bin[,colnames(mat_bin )%in%metadata$ID]
 
 
@@ -104,6 +105,7 @@ subset_SRR <- unique(PR_meta$ID)
 subset <- mat_bin_samples[,colnames(mat_bin_samples) %in% subset_SRR]
 
 dist_dat<-dist(t(mat_bin_samples), method = "manhattan")
+dist_dat<-dist(t(mat_bin), method = "manhattan")
 dist_dat_PR<-dist(t(subset), method = "manhattan")
 #dist_dat<-dist(t(snp_imputed_freq_t), method = "manhattan")
 #write.csv(dist_dat, "all_aedes_norm_ filt_miss0.5_mac3_minQ30.vcf.gz.recode.dist.mat")
@@ -158,15 +160,17 @@ for (i in 1:nrow(df_PR)){
 #DEFINE COLOUR TO USE
 #col_ramp <- brewer.pal(8, "Pastel1")
 col_ramp <- c("#40476D", "#678D58","#EE964B", "#F95738",  "#A6C48A",  "#51A3A3", "#7D387D", "#bc80bd")
+#col_ramp <- c("#bc80bd", "#EE964B", "#F95738", "#7D387D", "#40476D", "#678D58", "#A6C48A", "#51A3A3")
 #col_ramp <- c("#db7376", "#52a884", "#bc80bd", "#465c7a", "#ffaa5c",  "#A6C48A",  "#51A3A3", "#7D387D")
 colour_by <- "Country"
+colour_by <- "Subregion"
 colour_by <- "Subregion_simple"
 
 
 ## change data input if using filtered version
 ####### PC1 vs PC2 #######
 plot <- ggplot() + 
-    geom_point(data = df_PR, aes(x = PC1, y = PC2, colour = !!sym(colour_by)), size = 5) +
+    geom_point(data = df, aes(x = PC1, y = PC2, colour = !!sym(colour_by)), size = 5) +
     xlab(paste0("PC1 ", PC1_lab, "%")) +
     ylab(paste0("PC2 ", PC2_lab, "%")) +
     scale_colour_manual(values = col_ramp, name = "Subregion") +
@@ -375,10 +379,28 @@ dev.off()
 
 
 #### NJ TREE ####
+workdir <- "/mnt/storage12/emma/NJ_tree_files" # Working directory with plink files
+prefix <- "PR_WGS" # Prefix for plink files
+metadata <- "/mnt/storage12/emma/PR_combine/all_sample_country_metadata.csv" # File path to metadata
+
+#### DIST#
+dist <- read.table(file.path(workdir, paste0(prefix, ".dist")), header = FALSE)
+id <- read.table(file.path(workdir, paste0(prefix, ".dist.id")))
+met <- read.table(metadata, sep = ",", stringsAsFactors = FALSE, header = TRUE)
+
+desc <- id %>% left_join(met, by = c("V1" = "ID"))
+
+dist_m <- as.matrix(dist)
+
+# Export dist_m to .newick to make neighbour joining tree
+tree <- nj(dist_m)
+write.tree(phy = tree, file = file.path(workdir, paste0(prefix, ".newick.tree")))
+
 require("ape")
 
 tree_dat<-nj(dist_dat)
-write.tree(tree_dat, file="YOURNEWICKFILE.tree")
+write.tree(tree_dat, file="/mnt/storage12/emma/NJ_tree/PR_WGS.tree")
 
 ## open in iTOL
+
 

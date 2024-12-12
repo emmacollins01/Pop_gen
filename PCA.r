@@ -102,10 +102,14 @@ dev.off()
 
 PR_meta <- read.csv("/mnt/storage12/emma/PR_combine/all_samples_PR_resistance.csv")
 subset_SRR <- unique(PR_meta$ID) 
+subset_SRR <- unlist(as.list(metadata$ID[metadata$Country %in% c("Burkina Faso", "Uganda", "Kenya")]))
 
 subset <- mat_bin_samples[,colnames(mat_bin_samples) %in% subset_SRR]
 
 dist_dat<-dist(t(mat_bin_samples), method = "manhattan")
+
+#if using filtered version
+#dist_dat<-dist(t(subset), method = "manhattan")
 #dist_dat_PR<-dist(t(subset), method = "manhattan")
 #dist_dat<-dist(t(snp_imputed_freq_t), method = "manhattan")
 #write.csv(dist_dat, "all_aedes_norm_ filt_miss0.5_mac3_minQ30.vcf.gz.recode.dist.mat")
@@ -382,6 +386,6 @@ dev.off()
 require("ape")
 
 tree_dat<-nj(dist_dat)
-write.tree(tree_dat, file="YOURNEWICKFILE.tree")
+write.tree(tree_dat, file="African_samples.tree")
 
 ## open in iTOL
