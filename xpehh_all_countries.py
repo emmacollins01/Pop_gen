@@ -15,16 +15,21 @@ import matplotlib.patches as mpatches
 import gffutils
 
 # %% set wd
-os.chdir('/mnt/storage12/emma/selection/xpehh/')
+os.chdir('/mnt/storage12/emma/selection/')
 os.getcwd()
+
+## remove MAF < 5%
+## Window 10kb 
 
 # %%
 # convert phased, filtered, VCF file to zarr file
 # already converted to zarr
 #allel.vcf_to_zarr('all_aedes_norm_filt_miss0.5_mac3_minQ30.vcf.gz.recode.chrom.lmiss.filt.vcf.gz.recode.main_chrom_only_renamed.phased.vcf.gz', 'all_aedes_lmiss_phased_rename_chrom.zarr', fields='*', overwrite=True)
+#allel.vcf_to_zarr('filtered.out.recode.phased.vcf.vcf.gz', 'filtered.out.recode.phased.zarr', fields='*', overwrite=True)
 
 # %%
 callset = zarr.open('all_aedes_lmiss_phased.zarr', mode='r')
+
 #callset.tree(expand=True)
 
 # %%
@@ -82,6 +87,7 @@ for i in range(0,56):
 
 
 # %% look for where the biggest signal is
+all_data_array = []
 for i in range(0,56):
     country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
     country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
@@ -91,6 +97,7 @@ for i in range(0,56):
     #ax.set_xlabel('Raw XP-EHH')
     #ax.set_ylabel('Frequency (no. variants)');
 
+    ### CHECK WHAT ALLELE COUNT USED
     allele_counts_array = gt.count_alleles(max_allele=3).compute()
     globals()[f"xpehh_std_{country1}_{country2}"] = allel.standardize_by_allele_count(globals()[f"xpehh_raw_{country1}_{country2}"], allele_counts_array[:, 1])
 
@@ -183,15 +190,17 @@ for i in range(0,56):
     # Set labels
     ax.set_xlabel('Genomic Position (bp)')
     ax.set_ylabel('XP-EHH')
+    plt.ylim(-6.5, 6.5)
     plt.tight_layout()
-    plt.title(f'Plot {country1} against {country2}')
+    plt.title(f'{country1} vs {country2}')
     filename = f'plot_{country1}_{country2}.png'
     plt.savefig(filename)
     plt.show()
     plt.clf()
 
+## threshold arrow direction check!
     globals()[f"{country1}_threshold_mask"] = xpehh_standardised_values >= upper_threshold
-    globals()[f"{country2}_threshold_mask"] = xpehh_standardised_values >= lower_threshold
+    globals()[f"{country2}_threshold_mask"] = xpehh_standardised_values <= lower_threshold
 
     country1_significant_chrom = chrom[globals()[f"{country1}_threshold_mask"]]
     country1_significant_pos = pos[globals()[f"{country1}_threshold_mask"]]
@@ -202,7 +211,7 @@ for i in range(0,56):
     country2_significant_chrom = chrom[globals()[f"{country2}_threshold_mask"]]
     country2_significant_pos = pos[globals()[f"{country2}_threshold_mask"]]
     country2_significant_xpehh = xpehh_standardised_values[globals()[f"{country2}_threshold_mask"]]
-    country2_array = np.full(len(country1_significant_xpehh), country2)
+    country2_array = np.full(len(country2_significant_xpehh), country2)
     comparison2_array = np.full(len(country2_significant_xpehh), country1)  
 
     # Combine the filtered data into a structured array
@@ -218,68 +227,28 @@ for i in range(0,56):
 
 
     # Save to csv
-    df_significant_1_xpehh.to_csv(f'df_significant_xpehh_threshold_{country1}_against{country2}.csv', index=False)
-    df_significant_2_xpehh.to_csv(f'df_significant_xpehh_threshold_{country2}_against{country1}.csv', index=False)
+    df_significant_1_xpehh.to_csv(f'df_significant_xpehh_threshold_{country1}_vs_{country2}.csv', index=False)
+    df_significant_2_xpehh.to_csv(f'df_significant_xpehh_threshold_{country2}_vs_{country1}.csv', index=False)
 
     #all_data_array = []
 
-    #all_data_array.append(df_significant_1_xpehh)
+    all_data_array.append(df_significant_1_xpehh) 
+    all_data_array.append(df_significant_2_xpehh)
+
+df = pd.concat(all_data_array, ignore_index = True)
+df.to_csv("all_xpehh_significant.csv")
 
 ################################################
 ################################################
+
+
 #%%
-#bind dataframes
-
-
-
-
-################################################
-#%%
-xpehh_hit_max = np.nanargmax(xpehh_raw)
-xpehh_hit_max
-
-# %% genomic position of top hit
-pos[xpehh_hit_max]
-
-
-
-# %% list all positions with xpehh value over or below a certain threshold
-for i in range(0,56):
-    country1 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][0]
-    country2 = list(itertools.permutations(np.unique(df_samples.Country),2))[i][1]
-
-    globals()[f"{countrbijagos_threshold_mask = xpehh_standardised_values >= bijagos_threshold
-    cameroon_threshold_mask = xpehh_standardised_values <= cameroon_threshold
-
-# %% Apply the mask to filter the data
-bij_significant_chrom = chrom[bijagos_threshold_mask]
-bij_significant_pos = pos[bijagos_threshold_mask]
-bij_significant_xpehh = xpehh_standardised_values[bijagos_threshold_mask]
-
-cam_significant_chrom = chrom[cameroon_threshold_mask]
-cam_significant_pos = pos[cameroon_threshold_mask]
-cam_significant_xpehh = xpehh_standardised_values[cameroon_threshold_mask]
-
-# %% Combine the filtered data into a structured array
-bij_significant_xpehh_data = np.column_stack((bij_significant_chrom, bij_significant_pos, bij_significant_xpehh))
-cam_significant_xpehh_data = np.column_stack((cam_significant_chrom, cam_significant_pos, cam_significant_xpehh))
-
-# %% Convert the structured array to a pandas DataFrame for easier handling
-df_significant_bij_xpehh = pd.DataFrame(bij_significant_xpehh_data, columns=['Chromosome', 'Position', 'XPEHH'])
-df_significant_cam_xpehh = pd.DataFrame(cam_significant_xpehh_data, columns = ['Chromosome', 'Position', 'XPEHH'])
-
-# %% Save to csv
-df_significant_bij_xpehh.to_csv(f'df_significant_PR_xpehh_bijagos_threshold_{bijagos_threshold}.csv', index=False)
-df_significant_cam_xpehh.to_csv(f'df_significant_Mexico_xpehh_cameroon_threshold_{cameroon_threshold}.csv', index=False)
-
-# %% bring in the gff file to understand where each of these variants is
-
 print("Using GFF file to bring in annotations for these positions")
 
-## Annotate the Bijagos XPEHH file
-# Parameters
-input_file_name = f"df_significant_PR_xpehh_bijagos_threshold_{bijagos_threshold}.csv"
-output_file_name = f"df_significant_PR_xpehh_bijagos_threshold_{bijagos_threshold}_annotated.csv"
+## Annotate XPEHH file
+
+input_file_name = "all_xpehh_significant.csv"
+output_file_name = "all_xpehh_significant_annotated_15_06_24.csv"
 gff_file = '/mnt/storage12/emma/Reference_files/genes.gff'
 
 # Function to find and format the GFF line(s) that overlap a given position
@@ -317,46 +286,9 @@ with open(output_file_name, "w") as outfile:
             outfile.write(f"{chromosome},{position},{XPEHH},{gff_annotation}\n")
 
 print(f"XP-EHH significant values identified and GFF annotations written here: {output_file_name}")
-# %%
-## Annotate the Cameroon XPEHH file
-# Parameters
-input_file_name = f"df_significant_cam_xpehh_cameroon_threshold_{cameroon_threshold}.csv"
-output_file_name = f"df_significant_cam_xpehh_cameroon_threshold_{cameroon_threshold}_annotated.csv"
-gff_file = '/mnt/storage11/sophie/reference_genomes/A_gam_P4_ensembl/Anopheles_gambiae.AgamP4.56.chr.gff3'
 
-# Function to find and format the GFF line(s) that overlap a given position
-def find_overlapping_gff_lines(chromosome, position, gff_file):
-    overlapping_lines = []
-    with open(gff_file, 'r') as gff:
-        for line in gff:
-            if line.startswith('#') or line.strip() == "":
-                continue  # Skip header and empty lines
-            parts = line.split('\t')
-            if parts[0] == chromosome and int(parts[3]) <= position <= int(parts[4]):
-                formatted_line = ",".join(parts).strip()
-                overlapping_lines.append(formatted_line)
-    return overlapping_lines
 
-# Open the output file to write the annotated positions
-with open(output_file_name, "w") as outfile:
-    # Write the header line
-    outfile.write("Chromosome,Position,XPEHH,Gff_Annotation\n")
 
-    # Open the file containing significant iHS positions to read
-    with open(input_file_name, "r") as infile:
-        next(infile) #skip header line
-        for line in infile:
-            parts = line.strip().split(",")
-            chromosome, position, XPEHH = parts[0], int(parts[1]), parts[2]
-            
-            # Find overlapping GFF lines for the position
-            overlapping_gff_lines = find_overlapping_gff_lines(chromosome, position, gff_file)
-            
-            # Join all overlapping GFF lines into a single string
-            gff_annotation = "; ".join(overlapping_gff_lines)
-            
-            # Write to the output file
-            outfile.write(f"{chromosome},{position},{XPEHH},{gff_annotation}\n")
-
-print(f"XP-EHH significant values identified and GFF annotations written here: {output_file_name}")
+################################################
+################################################
 # %%

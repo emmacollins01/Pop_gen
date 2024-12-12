@@ -55,7 +55,7 @@ gt_cam_samples = gt.take(cam_indices, axis=1)
 
 # %% Create arrays needed for Bijagos samples
 # Get sample identifiers for Bijagos samples from df_samples
-bij_sample_ids = df_samples[df_samples['Country'] == 'Mexico']['ID'].values
+bij_sample_ids = df_samples[df_samples['Country'] == 'Kenya']['ID'].values
 # Find indices of these samples in the genotype array
 bij_indices = np.array([np.where(sample_ids == id)[0][0] for id in bij_sample_ids if id in sample_ids])
 # Verify the indices are within the correct range
@@ -94,9 +94,18 @@ ax.hist(xpehh_raw[~np.isnan(xpehh_raw)], bins=20)
 ax.set_xlabel('Raw XP-EHH')
 ax.set_ylabel('Frequency (no. variants)');
 
+#%% Make gt array for countries you are comparing
+gt_country1 = gt.take(bij_indices, axis=1)
+gt_country2 = gt.take(cam_indices, axis=1)
+
+gt_combined = np.concatenate([gt_country1, gt_country2], axis =1)
+gt_new = allel.GenotypeDaskArray(gt_combined)
+
+
 # %% standardise xpehh-raw
 
-allele_counts_array = gt.count_alleles(max_allele=3).compute()
+#allele_counts_array = gt.count_alleles(max_allele=3).compute()
+allele_counts_array = gt_new.count_alleles(max_allele=3).compute()
 xpehh_std = allel.standardize_by_allele_count(xpehh_raw, allele_counts_array[:, 1])
 
 # %% plot standardised xp-ehh values
@@ -221,12 +230,12 @@ bij_significant_xpehh_data = np.column_stack((bij_significant_chrom, bij_signifi
 cam_significant_xpehh_data = np.column_stack((cam_significant_chrom, cam_significant_pos, cam_significant_xpehh))
 
 # %% Convert the structured array to a pandas DataFrame for easier handling
-df_significant_bij_xpehh = pd.DataFrame(bij_significant_xpehh_data, columns=['Chromosome', 'Position', 'XPEHH'])
-df_significant_cam_xpehh = pd.DataFrame(cam_significant_xpehh_data, columns = ['Chromosome', 'Position', 'XPEHH'])
+df_significant_PR_TEST_xpehh = pd.DataFrame(bij_significant_xpehh_data, columns=['Chromosome', 'Position', 'XPEHH'])
+df_significant_MEXICO_TEST_xpehh = pd.DataFrame(cam_significant_xpehh_data, columns = ['Chromosome', 'Position', 'XPEHH'])
 
 # %% Save to csv
-df_significant_bij_xpehh.to_csv(f'df_significant_PR_xpehh_bijagos_threshold_{bijagos_threshold}.csv', index=False)
-df_significant_cam_xpehh.to_csv(f'df_significant_Mexico_xpehh_cameroon_threshold_{cameroon_threshold}.csv', index=False)
+df_significant_PR_TEST_xpehh.to_csv(f'df_significant_PR_TEST_xpehh_threshold_{bijagos_threshold}.csv', index=False)
+df_significant_MEXICO_TEST_xpehh.to_csv(f'df_significant_MEXICO_TEST_xpehh_threshold_{cameroon_threshold}.csv', index=False)
 
 # %% bring in the gff file to understand where each of these variants is
 
