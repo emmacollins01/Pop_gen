@@ -22,7 +22,8 @@ for (i in 1:nrow(all)){
 nrow(all)
 length(unique(all$gene))
 
-
+library(stringr)
+library(dplyr)
 del <- read.csv("/mnt/storage12/emma/delly/June24/merged.sample_filt.BNDfiltered.pass.of_interest_expanded.txt", header = FALSE, sep = "\t")
 
 head(del)
@@ -88,6 +89,15 @@ unique(mode_high$POS)
 
 mode_dup <- mode[grep("DUP", mode$ANN),]
 unique(mode_dup$POS)
+
+
+### positions in most common genes
+test <- del %>% group_by(POS, gene) %>% summarise(no_pos = n())
+test2 <- test %>% group_by(gene) %>% summarise(no_svs =n())
+genes <- c("LOC5572215", "LOC23687794", "LOC5565389", "LOC5577718", "LOC23687733", "LOC5571510", "LOC23687755", "LOC5573499", "LOC5571895", "LOC5572902")
+subset <- del[del$gene %in% genes,]
+
+write.csv(subset, "/mnt/storage12/emma/delly/June24/top_10_genes.csv", row.names = FALSE)
 
 ### INV ###
 

@@ -280,6 +280,8 @@ IR_vgsc <- df_sub[df_sub$POS >= 315926360 & df_sub$POS <= 316405639,]
 
 IR_vgsc_top <- IR_vgsc %>% top_n(WEIR_AND_COCKERHAM_FST, n = 20)
 
+write.csv(IR_vgsc_top, "IR_vgsc_top.csv")
+
 IR_rdl <- df_sub[df_sub$CHROM == 035108 & df_sub$POS >= 41628484 & df_sub$POS <= 41861946,] 
 
 IR_rdl_top <- IR_rdl %>% top_n(WEIR_AND_COCKERHAM_FST, n = 20)
@@ -315,7 +317,7 @@ vgsc_test <- df_sub[df_sub$CHROM == 35108 & (df_sub$POS >315926360 & df_sub$POS 
 top_values_vgsc <- vgsc_test %>%
   filter(WEIR_AND_COCKERHAM_FST > 0.8) %>%
   group_by(FileFrom) %>%
-  top_n(10, WEIR_AND_COCKERHAM_FST) %>%
+  top_n(20, WEIR_AND_COCKERHAM_FST) %>%
   arrange(FileFrom, desc(WEIR_AND_COCKERHAM_FST))
 
 

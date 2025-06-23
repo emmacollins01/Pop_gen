@@ -89,6 +89,8 @@ summary
 summary2 <- nuc %>% group_by(FileFrom) %>% summarise(mean = mean(PI))
 summary3 <- nuc %>% group_by(CHROM) %>% summarise(mean = mean(PI))
 
+
+
 summary(nuc$PI)
 
 pr_plot <- ggplot() + 

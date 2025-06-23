@@ -6,6 +6,9 @@ prefix <- "PR_WGS" # Prefix for plink files
 metadata <- "/mnt/storage12/emma/PR_combine/all_sample_country_metadata.csv" # File path to metadata
 
 #### DIST#
+## run PLINK to make the distance matrix
+## plink --vcf <vcf-file> --distance square --double-id --allow-extra-chr --out <prefix>
+
 dist <- read.table(file.path(workdir, paste0(prefix, ".dist")), header = FALSE)
 id <- read.table(file.path(workdir, paste0(prefix, ".dist.id")))
 met <- read.table(metadata, sep = ",", stringsAsFactors = FALSE, header = TRUE)
